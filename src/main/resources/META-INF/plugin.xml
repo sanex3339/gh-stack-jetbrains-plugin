@@ -249,6 +249,9 @@
             <reference ref="GhStack.RebaseUpstack"/>
             <reference ref="GhStack.RebaseDownstack"/>
             <separator/>
+            <reference ref="GhStack.Push"/>
+            <reference ref="GhStack.Submit"/>
+            <separator/>
             <reference ref="GhStack.InsertBelow"/>
             <reference ref="GhStack.RemoveFromStack"/>
             <reference ref="GhStack.ShowToolWindow"/>
