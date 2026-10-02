@@ -1,0 +1,256 @@
+<idea-plugin>
+    <id>com.github.sanex3339.ghstack</id>
+    <name>GH Stack</name>
+    <vendor>sanex3339</vendor>
+    <description><![CDATA[
+    Work with GitHub stacked pull requests from the IDE instead of the terminal.
+    <p>GH Stack is a UI for the <a href="https://github.com/github/gh-stack">gh stack</a> GitHub CLI extension:
+    see every stack and its pull requests, switch between layers, insert branches, rebase, push, submit,
+    sync and merge with one click.</p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+    <depends optional="true" config-file="ghstack-terminal.xml">org.jetbrains.plugins.terminal</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup id="GH Stack" displayType="BALLOON"/>
+        <applicationConfigurable parentId="tools" id="com.github.sanex3339.ghstack.settings" displayName="GH Stack"
+                                 instance="com.github.sanex3339.ghstack.settings.GhStackConfigurable"/>
+        <toolWindow id="GH Stack" anchor="right" icon="/icons/ghStack.svg"
+                    factoryClass="com.github.sanex3339.ghstack.ui.toolwindow.GhStackToolWindowFactory"/>
+        <statusBarWidgetFactory id="GhStackStatusBar"
+                                implementation="com.github.sanex3339.ghstack.ui.switcher.StackStatusBarWidgetFactory"/>
+    </extensions>
+
+    <actions>
+        <!-- Navigation -->
+        <action id="GhStack.ShowSwitcher" class="com.github.sanex3339.ghstack.ui.switcher.ShowStackSwitcherAction"
+                text="Switch Branch in Stack…" description="Show the stack switcher">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="L"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="L"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="L"/>
+        </action>
+        <action id="GhStack.ShowToolWindow" class="com.github.sanex3339.ghstack.actions.ShowToolWindowAction"
+                text="Show GH Stack Tool Window">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="W"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="W"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="W"/>
+        </action>
+        <action id="GhStack.Up" class="com.github.sanex3339.ghstack.actions.UpAction"
+                text="Up" description="Check out the branch above (gh stack up)">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="U"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="U"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="U"/>
+        </action>
+        <action id="GhStack.Down" class="com.github.sanex3339.ghstack.actions.DownAction"
+                text="Down" description="Check out the branch below (gh stack down)">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="D"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="D"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="D"/>
+        </action>
+        <action id="GhStack.Top" class="com.github.sanex3339.ghstack.actions.TopAction"
+                text="Top" description="Check out the top branch (gh stack top)">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="T"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="T"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="T"/>
+        </action>
+        <action id="GhStack.Bottom" class="com.github.sanex3339.ghstack.actions.BottomAction"
+                text="Bottom" description="Check out the lowest unmerged branch (gh stack bottom)">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="B"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="B"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="B"/>
+        </action>
+        <action id="GhStack.Trunk" class="com.github.sanex3339.ghstack.actions.TrunkAction"
+                text="Trunk" description="Check out the trunk branch (gh stack trunk)"/>
+        <action id="GhStack.Checkout" class="com.github.sanex3339.ghstack.actions.CheckoutSelectedBranchAction"
+                text="Check Out" description="Check out the selected branch"/>
+        <action id="GhStack.CheckoutStack" class="com.github.sanex3339.ghstack.actions.CheckoutStackAction"
+                text="Check Out Stack…" description="Check out a stack by number, PR number, PR URL or branch"/>
+
+        <!-- Remote -->
+        <action id="GhStack.Sync" class="com.github.sanex3339.ghstack.actions.SyncAction"
+                text="Sync" description="Fetch, rebase, push and refresh PR state (gh stack sync)">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="S"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="S"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="S"/>
+        </action>
+        <action id="GhStack.SyncPrune" class="com.github.sanex3339.ghstack.actions.SyncPruneAction"
+                text="Sync and Prune Merged" description="Sync and delete local branches of merged PRs (gh stack sync --prune)"/>
+        <action id="GhStack.Push" class="com.github.sanex3339.ghstack.actions.PushAction"
+                text="Push" description="Push all active branches (gh stack push)">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="P"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="P"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="P"/>
+        </action>
+        <action id="GhStack.Submit" class="com.github.sanex3339.ghstack.actions.SubmitAction"
+                text="Submit…" description="Push, open PRs for new branches and link the stack on GitHub"/>
+        <action id="GhStack.SubmitInTerminal" class="com.github.sanex3339.ghstack.actions.SubmitInTerminalAction"
+                text="Submit in Terminal" description="Run the interactive gh stack submit editor"/>
+        <action id="GhStack.Merge" class="com.github.sanex3339.ghstack.actions.MergeAction"
+                text="Merge…" description="Merge the stack up to a pull request (gh stack merge)"/>
+
+        <!-- Rebase -->
+        <action id="GhStack.Rebase" class="com.github.sanex3339.ghstack.actions.RebaseStackAction"
+                text="Rebase Stack" description="Cascading rebase of the whole stack (gh stack rebase)"/>
+        <action id="GhStack.RebaseUpstack" class="com.github.sanex3339.ghstack.actions.RebaseUpstackAction"
+                text="Rebase Upstack" description="Rebase from the current branch to the top (gh stack rebase --upstack)">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="R"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="R"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="R"/>
+        </action>
+        <action id="GhStack.RebaseDownstack" class="com.github.sanex3339.ghstack.actions.RebaseDownstackAction"
+                text="Rebase Downstack" description="Rebase from the trunk to the current branch (gh stack rebase --downstack)"/>
+        <action id="GhStack.RebaseUpstackFromHere" class="com.github.sanex3339.ghstack.actions.RebaseUpstackFromHereAction"
+                text="Rebase Upstack from Here" description="Check out this branch and rebase everything above it"/>
+        <action id="GhStack.RebaseContinue" class="com.github.sanex3339.ghstack.actions.RebaseContinueAction"
+                text="Continue Rebase" description="gh stack rebase --continue"/>
+        <action id="GhStack.RebaseAbort" class="com.github.sanex3339.ghstack.actions.RebaseAbortAction"
+                text="Abort Rebase" description="gh stack rebase --abort"/>
+        <action id="GhStack.ResolveConflicts" class="com.github.sanex3339.ghstack.actions.ResolveConflictsAction"
+                text="Resolve Conflicts…" description="Open the merge tool for conflicted files"/>
+
+        <!-- Structure -->
+        <action id="GhStack.NewStack" class="com.github.sanex3339.ghstack.actions.NewStackAction"
+                text="New Stack…" description="Create a stack (gh stack init)"/>
+        <action id="GhStack.AddBranch" class="com.github.sanex3339.ghstack.actions.AddBranchAction"
+                text="Add Branch on Top…" description="Add a branch on top of the stack (gh stack add)">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="A"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="A"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="A"/>
+        </action>
+        <action id="GhStack.InsertBelow" class="com.github.sanex3339.ghstack.actions.InsertBelowAction"
+                text="Insert Branch Below…" description="Insert a new branch below the selected (or current) branch and switch to it">
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="I"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="I"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="I"/>
+        </action>
+        <action id="GhStack.InsertAbove" class="com.github.sanex3339.ghstack.actions.InsertAboveAction"
+                text="Insert Branch Above…" description="Insert a new branch above the selected (or current) branch and switch to it"/>
+        <action id="GhStack.Modify" class="com.github.sanex3339.ghstack.actions.ModifyAction"
+                text="Restructure in Terminal…" description="Drop, fold, reorder or rename branches (gh stack modify)"/>
+        <action id="GhStack.ModifyContinue" class="com.github.sanex3339.ghstack.actions.ModifyContinueAction"
+                text="Continue Modify" description="gh stack modify --continue"/>
+        <action id="GhStack.ModifyAbort" class="com.github.sanex3339.ghstack.actions.ModifyAbortAction"
+                text="Abort Modify" description="gh stack modify --abort"/>
+        <action id="GhStack.Unstack" class="com.github.sanex3339.ghstack.actions.UnstackAction"
+                text="Unstack…" description="Remove the stack grouping locally or on GitHub (gh stack unstack)"/>
+
+        <!-- Branch helpers -->
+        <action id="GhStack.LayerDiff" class="com.github.sanex3339.ghstack.actions.LayerDiffAction"
+                text="Show Layer Diff" description="Show this branch's own changes against its parent"/>
+        <action id="GhStack.OpenPr" class="com.github.sanex3339.ghstack.actions.OpenPrAction"
+                text="Open Pull Request" description="Open the pull request in the browser"/>
+        <action id="GhStack.CopyPrUrl" class="com.github.sanex3339.ghstack.actions.CopyPrUrlAction"
+                text="Copy Pull Request URL"/>
+
+        <!-- Misc -->
+        <action id="GhStack.Refresh" class="com.github.sanex3339.ghstack.actions.RefreshAction"
+                text="Refresh" description="Re-check gh and reload the stacks"/>
+        <action id="GhStack.Settings" class="com.github.sanex3339.ghstack.actions.OpenSettingsAction"
+                text="GH Stack Settings…"/>
+        <action id="GhStack.RepoSelector" class="com.github.sanex3339.ghstack.actions.RepoSelectorAction"
+                text="Repository"/>
+        <action id="GhStack.MainToolbarSwitcher" class="com.github.sanex3339.ghstack.ui.switcher.StackSwitcherToolbarAction"
+                text="GH Stack Switcher">
+            <add-to-group group-id="MainToolbarVCSGroup" anchor="last"/>
+        </action>
+
+        <!-- Groups -->
+        <group id="GhStack.RebaseGroup" text="Rebase" popup="true" icon="AllIcons.Actions.Redo">
+            <reference ref="GhStack.Rebase"/>
+            <reference ref="GhStack.RebaseUpstack"/>
+            <reference ref="GhStack.RebaseDownstack"/>
+        </group>
+        <group id="GhStack.MoreGroup" text="More" popup="true" icon="AllIcons.Actions.More">
+            <reference ref="GhStack.SyncPrune"/>
+            <reference ref="GhStack.SubmitInTerminal"/>
+            <separator/>
+            <reference ref="GhStack.InsertAbove"/>
+            <reference ref="GhStack.LayerDiff"/>
+            <separator/>
+            <reference ref="GhStack.CheckoutStack"/>
+            <reference ref="GhStack.NewStack"/>
+            <reference ref="GhStack.Unstack"/>
+            <separator/>
+            <reference ref="GhStack.Settings"/>
+        </group>
+        <group id="GhStack.ToolWindow.Toolbar">
+            <reference ref="GhStack.RepoSelector"/>
+            <reference ref="GhStack.Refresh"/>
+            <separator/>
+            <reference ref="GhStack.Sync"/>
+            <reference ref="GhStack.RebaseGroup"/>
+            <reference ref="GhStack.Push"/>
+            <reference ref="GhStack.Submit"/>
+            <reference ref="GhStack.Merge"/>
+            <separator/>
+            <reference ref="GhStack.AddBranch"/>
+            <reference ref="GhStack.InsertBelow"/>
+            <reference ref="GhStack.Modify"/>
+            <reference ref="GhStack.MoreGroup"/>
+        </group>
+        <group id="GhStack.BranchPopup">
+            <reference ref="GhStack.Checkout"/>
+            <separator/>
+            <reference ref="GhStack.InsertBelow"/>
+            <reference ref="GhStack.InsertAbove"/>
+            <reference ref="GhStack.LayerDiff"/>
+            <reference ref="GhStack.RebaseUpstackFromHere"/>
+            <separator/>
+            <reference ref="GhStack.OpenPr"/>
+            <reference ref="GhStack.CopyPrUrl"/>
+        </group>
+        <group id="GhStack.SwitcherFooter">
+            <reference ref="GhStack.Up"/>
+            <reference ref="GhStack.Down"/>
+            <reference ref="GhStack.Top"/>
+            <reference ref="GhStack.Bottom"/>
+            <reference ref="GhStack.Trunk"/>
+            <separator/>
+            <reference ref="GhStack.Rebase"/>
+            <reference ref="GhStack.RebaseUpstack"/>
+            <reference ref="GhStack.RebaseDownstack"/>
+            <separator/>
+            <reference ref="GhStack.InsertBelow"/>
+            <reference ref="GhStack.ShowToolWindow"/>
+        </group>
+        <group id="GhStack.MainMenu" text="GH Stack" popup="true">
+            <add-to-group group-id="Git.MainMenu" anchor="last"/>
+            <reference ref="GhStack.ShowSwitcher"/>
+            <reference ref="GhStack.Up"/>
+            <reference ref="GhStack.Down"/>
+            <reference ref="GhStack.Top"/>
+            <reference ref="GhStack.Bottom"/>
+            <reference ref="GhStack.Trunk"/>
+            <separator/>
+            <reference ref="GhStack.Sync"/>
+            <reference ref="GhStack.SyncPrune"/>
+            <reference ref="GhStack.Rebase"/>
+            <reference ref="GhStack.RebaseUpstack"/>
+            <reference ref="GhStack.RebaseDownstack"/>
+            <reference ref="GhStack.RebaseContinue"/>
+            <reference ref="GhStack.RebaseAbort"/>
+            <reference ref="GhStack.ResolveConflicts"/>
+            <reference ref="GhStack.Push"/>
+            <reference ref="GhStack.Submit"/>
+            <reference ref="GhStack.SubmitInTerminal"/>
+            <reference ref="GhStack.Merge"/>
+            <separator/>
+            <reference ref="GhStack.AddBranch"/>
+            <reference ref="GhStack.InsertBelow"/>
+            <reference ref="GhStack.InsertAbove"/>
+            <reference ref="GhStack.Modify"/>
+            <reference ref="GhStack.ModifyContinue"/>
+            <reference ref="GhStack.ModifyAbort"/>
+            <reference ref="GhStack.LayerDiff"/>
+            <separator/>
+            <reference ref="GhStack.CheckoutStack"/>
+            <reference ref="GhStack.NewStack"/>
+            <reference ref="GhStack.Unstack"/>
+            <separator/>
+            <reference ref="GhStack.ShowToolWindow"/>
+            <reference ref="GhStack.Settings"/>
+        </group>
+    </actions>
+</idea-plugin>

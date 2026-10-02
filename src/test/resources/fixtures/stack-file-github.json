@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "repository": "github.com:octo/app",
+  "stacks": [
+    {
+      "id": "1201",
+      "number": 7,
+      "trunk": { "branch": "main", "head": "aaa" },
+      "branches": [
+        { "branch": "models", "pullRequest": { "number": 42, "id": "PR_42", "url": "https://github.com/octo/app/pull/42", "merged": true } },
+        { "branch": "auth", "base": "bbb", "pullRequest": { "number": 43, "url": "https://github.com/octo/app/pull/43" } },
+        { "branch": "api", "pullRequest": { "number": 44, "url": "https://github.com/octo/app/pull/44" } },
+        { "branch": "frontend", "pullRequest": { "number": 45, "url": "https://github.com/octo/app/pull/45" } }
+      ]
+    },
+    {
+      "trunk": { "branch": "develop" },
+      "branches": [ { "branch": "spike-a" }, { "branch": "spike-b" } ]
+    }
+  ]
+}

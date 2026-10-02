@@ -1,0 +1,22 @@
+{
+  "trunk": "main",
+  "currentBranch": "api",
+  "branches": [
+    {
+      "name": "auth",
+      "base": "4bbd75a07711aeb6f446cd6d4f7a866c21459e5e",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "api",
+      "base": "918fcf6ad6d6d01fed23876bf530a8dd0bce7c8a",
+      "isCurrent": true,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    }
+  ]
+}

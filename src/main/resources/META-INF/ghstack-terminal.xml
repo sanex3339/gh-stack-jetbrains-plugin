@@ -1,0 +1,6 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <projectService serviceInterface="com.github.sanex3339.ghstack.terminal.GhStackTerminal"
+                        serviceImplementation="com.github.sanex3339.ghstack.terminal.impl.GhStackTerminalImpl"/>
+    </extensions>
+</idea-plugin>

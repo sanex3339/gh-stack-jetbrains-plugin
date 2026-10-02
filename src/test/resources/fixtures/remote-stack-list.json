@@ -1,0 +1,10 @@
+[
+  {
+    "id": 1201, "number": 7, "node_id": "S_1", "url": "https://github.com/octo/app/stacks/7",
+    "base": { "ref": "main" },
+    "pull_requests": [
+      { "number": 43, "state": "open", "draft": false, "merged_at": null, "head": { "ref": "auth", "sha": "2" } },
+      { "number": 44, "state": "open", "draft": false, "merged_at": null, "head": { "ref": "api", "sha": "3" } }
+    ]
+  }
+]

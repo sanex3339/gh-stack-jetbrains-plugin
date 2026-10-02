@@ -1,0 +1,15 @@
+{
+  "currentBranchIndex": 2,
+  "conflictBranch": "api",
+  "remainingBranches": [],
+  "originalBranch": "auth",
+  "originalRefs": {
+    "api": "11128a5497d2106244241b5e9200dcf05bd3e8ec",
+    "api-models": "d25d0892d0036ee7ece94f2e4282ae7544b4a07a",
+    "auth": "94590b95adc291b0fa42102cf7af2b28ef62ae80"
+  },
+  "ontoOldBase": "11128a5497d2106244241b5e9200dcf05bd3e8ec",
+  "trunkRef": "main",
+  "trunkSha": "4bbd75a07711aeb6f446cd6d4f7a866c21459e5e",
+  "endIndex": 3
+}

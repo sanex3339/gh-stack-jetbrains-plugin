@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "repository": "",
+  "stacks": [
+    {
+      "trunk": {
+        "branch": "main",
+        "head": "4bbd75a07711aeb6f446cd6d4f7a866c21459e5e"
+      },
+      "branches": [
+        {
+          "branch": "auth",
+          "base": "4bbd75a07711aeb6f446cd6d4f7a866c21459e5e"
+        },
+        {
+          "branch": "api",
+          "base": "918fcf6ad6d6d01fed23876bf530a8dd0bce7c8a"
+        }
+      ]
+    }
+  ]
+}

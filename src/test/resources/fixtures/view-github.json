@@ -1,0 +1,14 @@
+{
+  "trunk": "main",
+  "currentBranch": "api",
+  "branches": [
+    { "name": "models", "isCurrent": false, "isMerged": true, "isQueued": false, "needsRebase": false,
+      "pr": { "number": 42, "url": "https://github.com/octo/app/pull/42", "state": "MERGED" } },
+    { "name": "auth", "isCurrent": false, "isMerged": false, "isQueued": true, "needsRebase": false,
+      "pr": { "number": 43, "url": "https://github.com/octo/app/pull/43", "state": "QUEUED" } },
+    { "name": "api", "isCurrent": true, "isMerged": false, "isQueued": false, "needsRebase": true,
+      "pr": { "number": 44, "url": "https://github.com/octo/app/pull/44", "state": "OPEN" } },
+    { "name": "frontend", "isCurrent": false, "isMerged": false, "isQueued": false, "needsRebase": false,
+      "pr": { "number": 45, "url": "https://github.com/octo/app/pull/45", "state": "OPEN" } }
+  ]
+}

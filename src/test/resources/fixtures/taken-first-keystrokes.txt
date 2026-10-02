@@ -1,0 +1,713 @@
+add
+alt 0
+alt 1
+alt 2
+alt 3
+alt 4
+alt 5
+alt 6
+alt 7
+alt 8
+alt 9
+alt b
+alt back_quote
+alt back_slash
+alt back_space
+alt button1
+alt button1 doubleclick
+alt button2
+alt c
+alt close_bracket
+alt control 0
+alt control 1
+alt control 2
+alt control 3
+alt control 4
+alt control 5
+alt control 6
+alt control 7
+alt control 8
+alt control 9
+alt control a
+alt control add
+alt control b
+alt control back_slash
+alt control back_space
+alt control button1
+alt control button3
+alt control c
+alt control cancel
+alt control close_bracket
+alt control d
+alt control divide
+alt control down
+alt control e
+alt control enter
+alt control equals
+alt control f
+alt control f12
+alt control f2
+alt control f4
+alt control f5
+alt control f6
+alt control f7
+alt control f8
+alt control f9
+alt control g
+alt control h
+alt control home
+alt control i
+alt control insert
+alt control j
+alt control k
+alt control l
+alt control left
+alt control m
+alt control minus
+alt control n
+alt control o
+alt control open_bracket
+alt control p
+alt control page_down
+alt control page_up
+alt control period
+alt control q
+alt control r
+alt control right
+alt control s
+alt control semicolon
+alt control shift 0
+alt control shift 1
+alt control shift 2
+alt control shift 7
+alt control shift 9
+alt control shift b
+alt control shift back_slash
+alt control shift back_space
+alt control shift button1
+alt control shift button3
+alt control shift c
+alt control shift close_bracket
+alt control shift d
+alt control shift down
+alt control shift e
+alt control shift enter
+alt control shift equals
+alt control shift f
+alt control shift f10
+alt control shift f11
+alt control shift f12
+alt control shift f7
+alt control shift f8
+alt control shift g
+alt control shift h
+alt control shift i
+alt control shift insert
+alt control shift j
+alt control shift k
+alt control shift l
+alt control shift left
+alt control shift m
+alt control shift minus
+alt control shift n
+alt control shift o
+alt control shift open_bracket
+alt control shift p
+alt control shift q
+alt control shift r
+alt control shift right
+alt control shift s
+alt control shift t
+alt control shift u
+alt control shift up
+alt control shift v
+alt control shift w
+alt control shift x
+alt control shift y
+alt control shift z
+alt control slash
+alt control space
+alt control subtract
+alt control t
+alt control u
+alt control up
+alt control v
+alt control w
+alt control y
+alt control z
+alt d
+alt delete
+alt down
+alt end
+alt enter
+alt escape
+alt f
+alt f1
+alt f10
+alt f11
+alt f12
+alt f2
+alt f3
+alt f5
+alt f7
+alt f8
+alt f9
+alt g
+alt home
+alt insert
+alt j
+alt left
+alt m
+alt meta 0
+alt meta 7
+alt meta 8
+alt meta b
+alt meta back_quote
+alt meta button1
+alt meta c
+alt meta close_bracket
+alt meta divide
+alt meta down
+alt meta e
+alt meta enter
+alt meta f
+alt meta f12
+alt meta f3
+alt meta f7
+alt meta f8
+alt meta f9
+alt meta g
+alt meta h
+alt meta i
+alt meta l
+alt meta left
+alt meta m
+alt meta multiply
+alt meta o
+alt meta open_bracket
+alt meta p
+alt meta page_down
+alt meta page_up
+alt meta q
+alt meta r
+alt meta right
+alt meta s
+alt meta semicolon
+alt meta shift back_quote
+alt meta shift back_slash
+alt meta shift close_bracket
+alt meta shift down
+alt meta shift e
+alt meta shift f10
+alt meta shift f12
+alt meta shift f7
+alt meta shift f8
+alt meta shift k
+alt meta shift n
+alt meta shift open_bracket
+alt meta shift p
+alt meta shift r
+alt meta shift t
+alt meta shift up
+alt meta slash
+alt meta t
+alt meta up
+alt meta v
+alt meta w
+alt meta y
+alt meta z
+alt minus
+alt multiply
+alt o
+alt open_bracket
+alt page_down
+alt page_up
+alt period
+alt q
+alt r
+alt right
+alt s
+alt semicolon
+alt shift 0
+alt shift 1
+alt shift 3
+alt shift 4
+alt shift 5
+alt shift 6
+alt shift 7
+alt shift 8
+alt shift 9
+alt shift a
+alt shift b
+alt shift back_slash
+alt shift back_space
+alt shift button1
+alt shift button2
+alt shift c
+alt shift close_bracket
+alt shift comma
+alt shift d
+alt shift delete
+alt shift down
+alt shift e
+alt shift end
+alt shift enter
+alt shift equals
+alt shift f
+alt shift f10
+alt shift f11
+alt shift f12
+alt shift f3
+alt shift f5
+alt shift f6
+alt shift f7
+alt shift f8
+alt shift f9
+alt shift g
+alt shift h
+alt shift home
+alt shift i
+alt shift insert
+alt shift j
+alt shift l
+alt shift left
+alt shift m
+alt shift minus
+alt shift n
+alt shift o
+alt shift open_bracket
+alt shift p
+alt shift page_down
+alt shift page_up
+alt shift period
+alt shift plus
+alt shift q
+alt shift quote
+alt shift r
+alt shift right
+alt shift s
+alt shift semicolon
+alt shift slash
+alt shift space
+alt shift subtract
+alt shift t
+alt shift tab
+alt shift u
+alt shift up
+alt shift v
+alt shift w
+alt shift x
+alt shift y
+alt shift z
+alt slash
+alt space
+alt subtract
+alt tab
+alt u
+alt up
+alt v
+alt w
+alt x
+alt y
+alt z
+back_space
+button1 doubleclick
+button2
+button4
+button5
+c
+context_menu
+control 0
+control 1
+control 2
+control 3
+control 4
+control 5
+control 6
+control 7
+control 8
+control 9
+control a
+control add
+control b
+control back_quote
+control back_slash
+control back_space
+control button1
+control button2
+control c
+control close_bracket
+control comma
+control control
+control d
+control delete
+control divide
+control down
+control e
+control end
+control enter
+control equals
+control escape
+control f
+control f1
+control f10
+control f11
+control f12
+control f2
+control f3
+control f4
+control f5
+control f6
+control f7
+control f8
+control f9
+control g
+control h
+control home
+control i
+control insert
+control j
+control k
+control l
+control left
+control m
+control meta 1
+control meta 2
+control meta 3
+control meta 4
+control meta a
+control meta b
+control meta close_bracket
+control meta down
+control meta e
+control meta equals
+control meta f
+control meta f5
+control meta f6
+control meta g
+control meta k
+control meta l
+control meta left
+control meta m
+control meta n
+control meta o
+control meta r
+control meta right
+control meta shift f
+control meta shift left
+control meta shift right
+control meta slash
+control meta space
+control meta t
+control meta u
+control meta up
+control meta y
+control minus
+control multiply
+control n
+control o
+control open_bracket
+control p
+control page_down
+control page_up
+control pause
+control period
+control q
+control quote
+control r
+control right
+control s
+control semicolon
+control shift 0
+control shift 1
+control shift 2
+control shift 3
+control shift 4
+control shift 5
+control shift 6
+control shift 7
+control shift 8
+control shift 9
+control shift a
+control shift add
+control shift b
+control shift back_quote
+control shift back_slash
+control shift back_space
+control shift button1
+control shift c
+control shift close_bracket
+control shift comma
+control shift d
+control shift delete
+control shift divide
+control shift down
+control shift e
+control shift end
+control shift enter
+control shift equals
+control shift f
+control shift f1
+control shift f10
+control shift f11
+control shift f12
+control shift f2
+control shift f3
+control shift f4
+control shift f5
+control shift f6
+control shift f7
+control shift f8
+control shift f9
+control shift g
+control shift h
+control shift home
+control shift i
+control shift insert
+control shift j
+control shift k
+control shift l
+control shift left
+control shift m
+control shift minus
+control shift multiply
+control shift n
+control shift o
+control shift open_bracket
+control shift p
+control shift page_down
+control shift page_up
+control shift period
+control shift q
+control shift quote
+control shift r
+control shift right
+control shift s
+control shift semicolon
+control shift slash
+control shift space
+control shift subtract
+control shift t
+control shift tab
+control shift u
+control shift up
+control shift v
+control shift w
+control shift x
+control shift y
+control shift z
+control slash
+control space
+control subtract
+control t
+control tab
+control u
+control up
+control v
+control w
+control x
+control y
+control z
+delete
+down
+e
+end
+enter
+equals
+escape
+f1
+f10
+f11
+f12
+f2
+f3
+f4
+f5
+f6
+f7
+f8
+f9
+force touch
+home
+insert
+left
+meta 0
+meta 1
+meta 2
+meta 3
+meta 4
+meta 5
+meta 6
+meta 7
+meta 8
+meta 9
+meta a
+meta add
+meta b
+meta back_quote
+meta back_slash
+meta back_space
+meta button1
+meta button2
+meta c
+meta close_bracket
+meta comma
+meta d
+meta delete
+meta divide
+meta down
+meta e
+meta end
+meta enter
+meta equals
+meta f
+meta f1
+meta f10
+meta f11
+meta f12
+meta f2
+meta f3
+meta f4
+meta f6
+meta f7
+meta f8
+meta f9
+meta g
+meta home
+meta i
+meta insert
+meta j
+meta k
+meta l
+meta left
+meta m
+meta minus
+meta multiply
+meta n
+meta o
+meta open_bracket
+meta p
+meta page_down
+meta page_up
+meta pause
+meta period
+meta q
+meta quote
+meta r
+meta right
+meta s
+meta semicolon
+meta shift 1
+meta shift 7
+meta shift 8
+meta shift a
+meta shift b
+meta shift back_quote
+meta shift back_slash
+meta shift back_space
+meta shift button1
+meta shift close_bracket
+meta shift comma
+meta shift d
+meta shift delete
+meta shift divide
+meta shift down
+meta shift e
+meta shift end
+meta shift enter
+meta shift equals
+meta shift f
+meta shift f1
+meta shift f11
+meta shift f3
+meta shift f5
+meta shift f6
+meta shift f7
+meta shift g
+meta shift h
+meta shift home
+meta shift i
+meta shift j
+meta shift k
+meta shift l
+meta shift left
+meta shift m
+meta shift minus
+meta shift multiply
+meta shift n
+meta shift o
+meta shift open_bracket
+meta shift p
+meta shift period
+meta shift plus
+meta shift r
+meta shift right
+meta shift s
+meta shift semicolon
+meta shift slash
+meta shift space
+meta shift subtract
+meta shift t
+meta shift u
+meta shift up
+meta shift v
+meta shift w
+meta shift x
+meta shift y
+meta shift z
+meta slash
+meta subtract
+meta t
+meta u
+meta up
+meta v
+meta w
+meta x
+meta y
+meta z
+minus
+multiply
+page_down
+page_up
+right
+shift b
+shift back_space
+shift button2
+shift c
+shift delete
+shift down
+shift end
+shift enter
+shift escape
+shift f1
+shift f10
+shift f11
+shift f12
+shift f2
+shift f3
+shift f4
+shift f5
+shift f6
+shift f7
+shift f8
+shift f9
+shift h
+shift home
+shift insert
+shift l
+shift left
+shift m
+shift page_down
+shift page_up
+shift r
+shift right
+shift shift
+shift space
+shift t
+shift tab
+shift up
+shift v
+space
+subtract
+tab
+up
