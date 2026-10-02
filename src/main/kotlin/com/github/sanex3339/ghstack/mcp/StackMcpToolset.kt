@@ -32,6 +32,7 @@ import com.github.sanex3339.ghstack.planning.InsertDirection
 import com.github.sanex3339.ghstack.planning.InsertPlanner
 import com.github.sanex3339.ghstack.planning.RemovalCheck
 import com.github.sanex3339.ghstack.planning.RemovePlanner
+import com.github.sanex3339.ghstack.settings.GhStackSettings
 import com.github.sanex3339.ghstack.state.BranchBadges
 import com.github.sanex3339.ghstack.state.RepoState
 import com.github.sanex3339.ghstack.ui.GhStackCommands
@@ -52,6 +53,9 @@ import kotlinx.coroutines.withContext
  */
 @Suppress("FunctionName", "unused")
 class StackMcpToolset : McpToolset {
+    // Read when the MCP server builds its tool list (at IDE start), so each tool checks the setting again when called.
+    override fun isEnabled(): Boolean = GhStackSettings.getInstance().state.mcpToolsEnabled
+
     @McpTool(name = "stack_view")
     @McpDescription(
         description = """
@@ -62,6 +66,7 @@ class StackMcpToolset : McpToolset {
         """,
     )
     suspend fun stack_view(): String {
+        requireEnabled()
         val project = currentCoroutineContext().project
         return withContext(Dispatchers.IO) {
             val service = StackStateService.getInstance(project)
@@ -270,6 +275,7 @@ class StackMcpToolset : McpToolset {
         prompts: Prompts = AgentPrompts(),
         body: OperationScope.() -> Unit,
     ): String {
+        requireEnabled()
         val project = currentCoroutineContext().project
         val job = currentCoroutineContext().job
         return withContext(Dispatchers.IO) {
@@ -289,6 +295,12 @@ class StackMcpToolset : McpToolset {
             }
             if (result.status == EntryStatus.FAILED) throw McpExpectedError(summary)
             summary
+        }
+    }
+
+    private fun requireEnabled() {
+        if (!isEnabled()) {
+            throw McpExpectedError("Stacked PRs tools are turned off. Turn them on in Settings | Tools | Stacked PRs.")
         }
     }
 

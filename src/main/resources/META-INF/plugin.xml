@@ -36,7 +36,7 @@
       <li>Conflicts open the IDE merge tool automatically; the stack rebase continues once they're resolved, also after
           the IDE's own "Continue Rebase".</li>
       <li>Tools for AI agents through the IDE's MCP server: view, check out, insert, remove, move changes, rebase,
-          push, submit, sync, mark ready, undo.</li>
+          push, submit, sync, mark ready, undo. Off by default; turn on in Settings | Tools | Stacked PRs.</li>
       <li>Toolbar grouped into Update, Publish and Edit Stack menus; compact, clickable status labels with detailed
           tooltips; optional pull request titles; statuses refresh every minute.</li>
       <li>A spinner shows while switching branches, syncing, rebasing and other operations run.</li>

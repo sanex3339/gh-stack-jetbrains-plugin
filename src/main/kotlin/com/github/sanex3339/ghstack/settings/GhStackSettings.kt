@@ -33,6 +33,7 @@ class GhStackSettings : SimplePersistentStateComponent<GhStackSettings.SettingsS
         var showPrTitles by property(false)
         var mergePreference by enum(MergeMethodPreference.REMEMBER_LAST)
         var lastMergeMethod by enum(MergeMethod.SQUASH)
+        var mcpToolsEnabled by property(false)
     }
 
     fun initialMergeMethod(): MergeMethod = when (state.mergePreference ?: MergeMethodPreference.REMEMBER_LAST) {

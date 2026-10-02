@@ -41,10 +41,12 @@ the plugin only reads its state files.
   branch); hover for details. Statuses refresh every minute.
 - **Conflicts** open the IDE merge tool automatically, and the stack rebase continues once they're resolved —
   also when you use the IDE's own "Continue Rebase".
-- **Agent tools (MCP)**: with the IDE's MCP server enabled (Settings ▸ Tools ▸ MCP Server), agents get
+- **Agent tools (MCP)**, off by default: with "Let AI agents use stack tools" on (Settings ▸ Tools ▸ Stacked PRs)
+  and the IDE's MCP server enabled (Settings ▸ Tools ▸ MCP Server), agents get
   `stack_view`, `stack_checkout`, `stack_insert_branch`, `stack_remove_branch`, `stack_move_changes`,
   `stack_rebase(_continue/_abort)`, `stack_push`, `stack_submit`, `stack_sync`, `stack_mark_ready` and
-  `stack_undo`, which run the same workflows as the UI and show up in the activity log.
+  `stack_undo`, which run the same workflows as the UI and show up in the activity log. Turning the setting off
+  stops the tools at once; agents see them added or removed after the IDE restarts.
 - `gh stack modify` and the interactive `submit` editor run in an IDE terminal tab.
 
 ## Shortcuts

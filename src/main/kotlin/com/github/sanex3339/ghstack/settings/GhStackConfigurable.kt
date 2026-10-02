@@ -29,6 +29,15 @@ class GhStackConfigurable : BoundConfigurable("Stacked PRs") {
             comboBox(MergeMethodPreference.entries)
                 .bindItem({ settings.mergePreference ?: MergeMethodPreference.REMEMBER_LAST }, { settings.mergePreference = it ?: MergeMethodPreference.REMEMBER_LAST })
         }
+        row {
+            checkBox("Let AI agents use stack tools through the IDE's MCP server")
+                .bindSelected({ settings.mcpToolsEnabled }, { settings.mcpToolsEnabled = it })
+                .comment(
+                    "Adds stack_view, stack_rebase, stack_push, stack_submit and other tools for agents connected to " +
+                        "Settings | Tools | MCP Server. Turning this off stops them right away; agents see the tool list " +
+                        "change after the IDE restarts.",
+                )
+        }
     }
 
     override fun apply() {
