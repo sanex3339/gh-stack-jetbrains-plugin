@@ -62,30 +62,6 @@ sandbox.
 - `.github/workflows/release.yml` (tags `v*`): tests, verifies, signs and publishes to JetBrains
   Marketplace, then creates a GitHub release with the signed zip.
 
-## Releasing
-
-One-time setup:
-
-1. Create the signing key and certificate (keep them out of git):
-   ```bash
-   openssl genpkey -aes-256-cbc -algorithm RSA -out private.pem -pkeyopt rsa_keygen_bits:4096
-   openssl req -key private.pem -new -x509 -days 3650 -subj "/CN=sanex3339" -out chain.crt
-   ```
-2. Add repository secrets: `CERTIFICATE_CHAIN` (contents of `chain.crt`), `PRIVATE_KEY` (contents of
-   `private.pem`), `PRIVATE_KEY_PASSWORD`, and `PUBLISH_TOKEN` from
-   <https://plugins.jetbrains.com/author/me/tokens>.
-3. **First upload is manual:** build a signed zip locally
-   (`CERTIFICATE_CHAIN="$(cat chain.crt)" PRIVATE_KEY="$(cat private.pem)" PRIVATE_KEY_PASSWORD=… ./gradlew signPlugin`)
-   and upload `build/distributions/*-signed.zip` at <https://plugins.jetbrains.com/author/me> →
-   *Add new plugin* (license: MIT, source: this repository). JetBrains reviews it, usually within a few
-   working days.
-
-Every release after that: bump `pluginVersion` in `gradle.properties`, update `<change-notes>` in
-`plugin.xml`, commit, then `git tag v<version> && git push --tags`. Each version is reviewed again
-before users get it. Pass `-PpublishChannel=beta` to publish to a beta channel instead.
-
-`scripts/dump-keystrokes.py` regenerates the bundled-shortcut fixture used by `KeymapConflictTest`.
-
 ## License
 
 [MIT](LICENSE)
