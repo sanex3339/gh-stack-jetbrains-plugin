@@ -30,17 +30,18 @@ data class PrDetails(
  * One GraphQL request for all of a stack's pull requests (`gh api graphql -f query=…`), plus one request per
  * further page of checks for pull requests with more than 100.
  *
- * The checks state is worked out from the newest run of each check rather than taken from GitHub's
- * `statusCheckRollup.state`: that summary still counts runs a newer run replaced (a workflow cancelled by its
- * concurrency group, a re-run), so it says FAILURE while the pull request page shows every check passing.
+ * The checks state is worked out from the latest run of each check rather than taken from GitHub's
+ * `statusCheckRollup.state`: that summary counts runs a later run replaced and cancelled runs, so it says FAILURE
+ * while the pull request page shows no failing check. Like the page, a cancelled check only counts when it's required.
  */
 object PrDetailsQuery {
     private const val PAGE_SIZE = 100
     private const val MAX_EXTRA_PAGES = 10
 
-    private const val CONTEXT_FIELDS = "pageInfo { hasNextPage endCursor } nodes { __typename" +
-        " ... on CheckRun { databaseId name conclusion status checkSuite { workflowRun { event workflow { name } } } }" +
-        " ... on StatusContext { context state createdAt } }"
+    private fun contextFields(number: Int) = "pageInfo { hasNextPage endCursor } nodes { __typename" +
+        " ... on CheckRun { databaseId name conclusion status completedAt isRequired(pullRequestNumber: $number)" +
+        " checkSuite { workflowRun { event workflow { name } } } }" +
+        " ... on StatusContext { context state createdAt isRequired(pullRequestNumber: $number) } }"
 
     fun build(repo: RepoCoordinates, numbers: List<Int>): String = buildString {
         append(repositoryHeader(repo))
@@ -48,7 +49,7 @@ object PrDetailsQuery {
             append(" pr").append(number).append(": pullRequest(number: ").append(number).append(") {")
             append(" number title isDraft reviewDecision mergeable")
             append(" commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: ").append(PAGE_SIZE).append(") { ")
-            append(CONTEXT_FIELDS).append(" } } } } } }")
+            append(contextFields(number)).append(" } } } } } }")
         }
         append(" } }")
     }
@@ -59,7 +60,7 @@ object PrDetailsQuery {
         append(" pullRequest(number: ").append(number).append(") {")
         append(" commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: ").append(PAGE_SIZE)
         append(", after: ").append(JsonPrimitive(after)).append(") { ")
-        append(CONTEXT_FIELDS).append(" } } } } } } } }")
+        append(contextFields(number)).append(" } } } } } } } }")
     }
 
     /**
@@ -155,8 +156,10 @@ object PrDetailsQuery {
     }
 
     /**
-     * The newest run of each check, in the order GitHub listed them. A check is a job name within one workflow and
-     * triggering event (like `gh pr checks`); check runs get increasing ids, so the highest id is the newest.
+     * The latest run of each check, in the order GitHub listed them. A check is a job name within one workflow and
+     * triggering event. Latest means completed last, as in GitHub's checks API; a run still going is newer than any
+     * finished one. Creation order doesn't work: a job waiting on another job gets its check run only when its workflow
+     * run is cancelled, after a newer run may already have skipped it.
      */
     private fun latestRuns(contexts: List<JsonObject>): List<JsonObject> {
         val newest = LinkedHashMap<List<String?>, JsonObject>()
@@ -174,20 +177,29 @@ object PrDetailsQuery {
     }
 
     private fun JsonObject.isNewerThan(other: JsonObject): Boolean {
-        val id = (this["databaseId"] as? JsonPrimitive)?.longOrNull
-        val otherId = (other["databaseId"] as? JsonPrimitive)?.longOrNull
-        return if (id != null && otherId != null) id > otherId else string("createdAt").orEmpty() > other.string("createdAt").orEmpty()
+        val done = finishedAt()
+        val otherDone = other.finishedAt()
+        if (done != otherDone) return done == null || (otherDone != null && done > otherDone)
+        val id = (this["databaseId"] as? JsonPrimitive)?.longOrNull ?: 0
+        val otherId = (other["databaseId"] as? JsonPrimitive)?.longOrNull ?: 0
+        return id > otherId
     }
+
+    /** ISO-8601 UTC, so it compares as text; `null` while a check run is still going. */
+    private fun JsonObject.finishedAt(): String? = string("completedAt") ?: string("createdAt")
 
     private fun JsonObject.checkName(): String = string("name") ?: string("context") ?: "check"
 
-    private fun JsonObject.isFailingCheck(): Boolean =
-        string("conclusion") in FAILING_CONCLUSIONS || string("state") in setOf("FAILURE", "ERROR")
+    private fun JsonObject.isFailingCheck(): Boolean = when (string("conclusion")) {
+        in FAILING_CONCLUSIONS -> true
+        "CANCELLED" -> (this["isRequired"] as? JsonPrimitive)?.booleanOrNull == true
+        else -> string("state") in setOf("FAILURE", "ERROR")
+    }
 
     private fun JsonObject.isPendingCheck(): Boolean =
         (string("__typename") == "CheckRun" && string("status") != "COMPLETED") || string("state") in setOf("PENDING", "EXPECTED")
 
-    private val FAILING_CONCLUSIONS = setOf("FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE")
+    private val FAILING_CONCLUSIONS = setOf("FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE")
 
     private fun repositoryHeader(repo: RepoCoordinates) =
         "query { repository(owner: ${JsonPrimitive(repo.owner)}, name: ${JsonPrimitive(repo.name)}) {"

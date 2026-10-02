@@ -39,6 +39,50 @@ class PrChecksTest {
     }
 
     @Test
+    fun `the run that finished last wins, whatever order the runs were created in`() {
+        // A job that waits on another job gets its check run only when its workflow run is cancelled, so ids and
+        // run numbers can't order them; GitHub's own "latest" is the run that completed last.
+        val json = response(
+            rollup = "FAILURE",
+            contexts = listOf(
+                run(id = 50, runId = 1, workflow = "Deploy", name = "preview", conclusion = "FAILURE", completed = "2026-10-02T20:20:27Z"),
+                run(id = 40, runId = 2, workflow = "Deploy", name = "preview", conclusion = "SUCCESS", completed = "2026-10-02T20:20:28Z"),
+                run(id = 60, runId = 4, workflow = "Tests", name = "result", conclusion = "FAILURE", completed = "2026-10-02T20:21:59Z"),
+                run(id = 55, runId = 3, workflow = "Tests", name = "result", conclusion = "SUCCESS", completed = "2026-10-02T20:22:38Z"),
+            ),
+        )
+        assertEquals(ChecksState.PASSING, PrDetailsQuery.parse(json).getValue(7).checks)
+    }
+
+    @Test
+    fun `a re-run replaces the earlier attempt`() {
+        val json = response(
+            rollup = "FAILURE",
+            contexts = listOf(
+                run(id = 10, runId = 1, workflow = "Tests", name = "unit", conclusion = "FAILURE"),
+                run(id = 60, runId = 1, workflow = "Tests", name = "unit", conclusion = "SUCCESS"),
+            ),
+        )
+        assertEquals(ChecksState.PASSING, PrDetailsQuery.parse(json).getValue(7).checks)
+    }
+
+    @Test
+    fun `a cancelled check fails the pull request only when it is required`() {
+        fun checks(required: Boolean) = PrDetailsQuery.parse(
+            response(
+                rollup = "FAILURE",
+                contexts = listOf(
+                    run(id = 10, workflow = "Lint", name = "lint", conclusion = "SUCCESS"),
+                    run(id = 20, workflow = "Deploy", name = "preview", conclusion = "CANCELLED", required = required),
+                ),
+            ),
+        ).getValue(7)
+        assertEquals(ChecksState.PASSING, checks(required = false).checks)
+        assertEquals(ChecksState.FAILING, checks(required = true).checks)
+        assertEquals(listOf("preview"), checks(required = true).failingChecks)
+    }
+
+    @Test
     fun `a queued re-run makes the check pending`() {
         val json = response(
             rollup = "FAILURE",
@@ -74,7 +118,7 @@ class PrChecksTest {
         val pages = listOf(
             response(
                 rollup = "FAILURE",
-                contexts = listOf(run(id = 10, workflow = "Lint", name = "lint", conclusion = "CANCELLED")),
+                contexts = listOf(run(id = 10, workflow = "Lint", name = "lint", conclusion = "FAILURE")),
                 nextCursor = "Y3Vyc29yOjE=",
             ),
             checksPage(contexts = listOf(run(id = 20, workflow = "Lint", name = "lint", conclusion = "SUCCESS"))),
@@ -90,7 +134,7 @@ class PrChecksTest {
     fun `falls back to GitHub's summary when a later page can't be read`() {
         val first = response(
             rollup = "FAILURE",
-            contexts = listOf(run(id = 10, workflow = "Lint", name = "lint", conclusion = "CANCELLED")),
+            contexts = listOf(run(id = 10, workflow = "Lint", name = "lint", conclusion = "FAILURE")),
             nextCursor = "Y3Vyc29yOjE=",
         )
         var calls = 0
@@ -103,9 +147,19 @@ class PrChecksTest {
         assertEquals(null, PrDetailsQuery.fetch(repo, listOf(7)) { null })
     }
 
-    private fun run(id: Long, workflow: String, name: String, conclusion: String?, status: String = "COMPLETED", event: String = "pull_request") =
-        """{"__typename":"CheckRun","databaseId":$id,"name":"$name","status":"$status","conclusion":${conclusion?.let { "\"$it\"" } ?: "null"},""" +
-            """"checkSuite":{"workflowRun":{"event":"$event","workflow":{"name":"$workflow"}}}}"""
+    private fun run(
+        id: Long,
+        workflow: String,
+        name: String,
+        conclusion: String?,
+        status: String = "COMPLETED",
+        event: String = "pull_request",
+        runId: Long = id,
+        completed: String? = if (status == "COMPLETED") "2026-10-02T20:%02d:%02dZ".format(id / 60, id % 60) else null,
+        required: Boolean = false,
+    ) = """{"__typename":"CheckRun","databaseId":$id,"name":"$name","status":"$status","conclusion":${conclusion?.let { "\"$it\"" } ?: "null"},""" +
+        """"completedAt":${completed?.let { "\"$it\"" } ?: "null"},"isRequired":$required,""" +
+        """"checkSuite":{"workflowRun":{"databaseId":$runId,"event":"$event","workflow":{"name":"$workflow"}}}}"""
 
     private fun contexts(contexts: List<String>, nextCursor: String?) =
         """{"pageInfo":{"hasNextPage":${nextCursor != null},"endCursor":${nextCursor?.let { "\"$it\"" } ?: "null"}},"nodes":[${contexts.joinToString(",")}]}"""
