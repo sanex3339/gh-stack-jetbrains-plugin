@@ -282,9 +282,10 @@ class StackStateService(private val project: Project, private val scope: Corouti
         val repository = state.repository ?: return null
         val numbers = state.currentStack?.activeBranches?.mapNotNull { it.pr?.number }.orEmpty()
         if (numbers.isEmpty()) return emptyMap()
-        val query = PrDetailsQuery.build(repository, numbers)
-        val result = runner.run(CommandRequest(root, listOf(status.ghPath, "api", "--hostname", repository.host, "graphql", "-f", "query=$query"), VIEW_TIMEOUT))
-        return if (result.ok) PrDetailsQuery.parse(result.stdout) else null
+        return PrDetailsQuery.fetch(repository, numbers) { query ->
+            val result = runner.run(CommandRequest(root, listOf(status.ghPath, "api", "--hostname", repository.host, "graphql", "-f", "query=$query"), VIEW_TIMEOUT))
+            result.stdout.takeIf { result.ok }
+        }
     }
 
     private fun resolveGitDir(root: Path, status: CliStatus): Path {
