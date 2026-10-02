@@ -26,6 +26,15 @@ class BannerPanel(private val project: Project) : JPanel(BorderLayout()) {
         repaint()
     }
 
+    private fun conflictText(what: String, files: List<String>, paused: Boolean): String = when {
+        files.isNotEmpty() -> {
+            val shown = files.take(3).joinToString(", ") + if (files.size > 3) " and ${files.size - 3} more" else ""
+            "$what: ${files.size} conflicted file${if (files.size == 1) "" else "s"} ($shown)."
+        }
+        paused -> "$what. The branch was finished or stopped outside the stack rebase: continue with the branches above, or abort."
+        else -> "$what. All conflicts are resolved: continue."
+    }
+
     private fun render(banner: Banner): JComponent {
         val isError = banner is Banner.GitMissing || banner is Banner.GhMissing || banner is Banner.StacksUnavailable
         val panel = EditorNotificationPanel(if (isError) EditorNotificationPanel.Status.Error else EditorNotificationPanel.Status.Warning)
@@ -45,15 +54,14 @@ class BannerPanel(private val project: Project) : JPanel(BorderLayout()) {
                 panel.createActionLabel("Log In…") { GhStackCommands.login(project) }
             }
             is Banner.RebaseConflict -> {
-                panel.text = "Rebase stopped" + (banner.branch?.let { " on $it" } ?: "") + ". Resolve the conflicts, then continue."
-                panel.createActionLabel("Resolve Conflicts…") { GhStackCommands.resolveConflicts(project) }
+                panel.text = conflictText("Rebase stopped" + (banner.branch?.let { " on $it" } ?: ""), banner.files, banner.paused)
+                if (banner.files.isNotEmpty()) panel.createActionLabel("Resolve Conflicts…") { GhStackCommands.resolveConflicts(project) }
                 panel.createActionLabel("Continue") { GhStackCommands.rebaseContinue(project) }
                 panel.createActionLabel("Abort") { GhStackCommands.rebaseAbort(project) }
             }
             is Banner.RemovalConflict -> {
-                panel.text = "Removing ${banner.removed} stopped" + (banner.branch?.let { " while rebasing $it" } ?: "") +
-                    ". Resolve the conflicts, then continue, or abort to put everything back."
-                panel.createActionLabel("Resolve Conflicts…") { GhStackCommands.resolveConflicts(project) }
+                panel.text = conflictText("Removing ${banner.removed} stopped" + (banner.branch?.let { " while rebasing $it" } ?: ""), banner.files, banner.paused)
+                if (banner.files.isNotEmpty()) panel.createActionLabel("Resolve Conflicts…") { GhStackCommands.resolveConflicts(project) }
                 panel.createActionLabel("Continue") { GhStackCommands.removeContinue(project) }
                 panel.createActionLabel("Abort") { GhStackCommands.removeAbort(project) }
             }

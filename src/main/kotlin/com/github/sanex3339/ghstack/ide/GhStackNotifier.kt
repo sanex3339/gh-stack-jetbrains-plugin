@@ -15,14 +15,14 @@ object GhStackNotifier {
     fun warn(project: Project, title: String, content: String = "", vararg actions: NotificationAction) =
         notify(project, title, content, NotificationType.WARNING, actions.toList())
 
-    /** Errors always offer the console, where the full command output is. */
+    /** Errors always offer the activity log, where the full command output is. */
     fun error(project: Project, title: String, content: String = "", vararg actions: NotificationAction) =
-        notify(project, title, content, NotificationType.ERROR, actions.toList() + showConsole(project))
+        notify(project, title, content, NotificationType.ERROR, actions.toList() + showLog(project))
 
     fun action(text: String, run: () -> Unit): NotificationAction = NotificationAction.createSimpleExpiring(text) { run() }
 
-    private fun showConsole(project: Project): NotificationAction =
-        NotificationAction.createSimple("Show console") { GhStackToolWindow.show(project, console = true) }
+    private fun showLog(project: Project): NotificationAction =
+        NotificationAction.createSimple("Show log") { GhStackToolWindow.show(project, revealLog = true) }
 
     private fun notify(project: Project, title: String, content: String, type: NotificationType, actions: List<NotificationAction>) {
         if (project.isDisposed) return

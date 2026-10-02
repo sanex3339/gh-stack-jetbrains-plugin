@@ -18,6 +18,10 @@ data class RepoState(
     val fallbackMode: Boolean,
     val operation: OperationState,
     val stacksUnavailable: Boolean,
+    /** Repo-relative paths git reports as unmerged (only looked up while a rebase is stopped). */
+    val conflictedFiles: List<String> = emptyList(),
+    /** git itself is mid-rebase (`rebase-merge`/`rebase-apply` exists), as opposed to between stack branches. */
+    val gitRebaseInProgress: Boolean = false,
 ) {
     val currentStack: StackUi? get() = stacks.firstOrNull { it.isCurrent }
 

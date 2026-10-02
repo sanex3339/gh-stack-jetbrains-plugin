@@ -47,8 +47,9 @@ object StatusGlyphs {
 
     private val red = JBColor(0xCF222E, 0xF85149)
 
-    fun badgeAttributes(tone: Tone): SimpleTextAttributes = SimpleTextAttributes(
-        SimpleTextAttributes.STYLE_SMALLER,
+    /** Clickable badges are underlined on hover-less trees too, so they read as links. */
+    fun badgeAttributes(tone: Tone, clickable: Boolean = false): SimpleTextAttributes = SimpleTextAttributes(
+        SimpleTextAttributes.STYLE_SMALLER or (if (clickable) SimpleTextAttributes.STYLE_UNDERLINE else 0),
         when (tone) {
             Tone.POSITIVE -> green
             Tone.NEUTRAL -> JBColor.GRAY

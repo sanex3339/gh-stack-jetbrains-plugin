@@ -1,15 +1,102 @@
 {
-  "data": {
-    "repository": {
-      "pr101": { "number": 101, "isDraft": true, "reviewDecision": null, "mergeable": "MERGEABLE",
-        "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "SUCCESS" } } } ] } },
-      "pr102": { "number": 102, "isDraft": false, "reviewDecision": "REVIEW_REQUIRED", "mergeable": "MERGEABLE",
-        "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "PENDING" } } } ] } },
-      "pr103": { "number": 103, "isDraft": false, "reviewDecision": "APPROVED", "mergeable": "CONFLICTING",
-        "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "FAILURE" } } } ] } },
-      "pr104": { "number": 104, "isDraft": false, "reviewDecision": "APPROVED", "mergeable": "MERGEABLE",
-        "commits": { "nodes": [ { "commit": { "statusCheckRollup": null } } ] } },
-      "pr999": null
+ "data": {
+  "repository": {
+   "pr101": {
+    "number": 101,
+    "isDraft": true,
+    "reviewDecision": null,
+    "mergeable": "MERGEABLE",
+    "commits": {
+     "nodes": [
+      {
+       "commit": {
+        "statusCheckRollup": {
+         "state": "SUCCESS"
+        }
+       }
+      }
+     ]
+    },
+    "title": "Add auth"
+   },
+   "pr102": {
+    "number": 102,
+    "isDraft": false,
+    "reviewDecision": "REVIEW_REQUIRED",
+    "mergeable": "MERGEABLE",
+    "commits": {
+     "nodes": [
+      {
+       "commit": {
+        "statusCheckRollup": {
+         "state": "PENDING"
+        }
+       }
+      }
+     ]
     }
+   },
+   "pr103": {
+    "number": 103,
+    "isDraft": false,
+    "reviewDecision": "APPROVED",
+    "mergeable": "CONFLICTING",
+    "commits": {
+     "nodes": [
+      {
+       "commit": {
+        "statusCheckRollup": {
+         "state": "FAILURE",
+         "contexts": {
+          "nodes": [
+           {
+            "__typename": "CheckRun",
+            "name": "build",
+            "conclusion": "FAILURE",
+            "status": "COMPLETED"
+           },
+           {
+            "__typename": "CheckRun",
+            "name": "lint",
+            "conclusion": "SUCCESS",
+            "status": "COMPLETED"
+           },
+           {
+            "__typename": "CheckRun",
+            "name": "e2e",
+            "conclusion": null,
+            "status": "IN_PROGRESS"
+           },
+           {
+            "__typename": "StatusContext",
+            "context": "ci/legacy",
+            "state": "ERROR"
+           }
+          ]
+         }
+        }
+       }
+      }
+     ]
+    },
+    "title": "Add UI"
+   },
+   "pr104": {
+    "number": 104,
+    "isDraft": false,
+    "reviewDecision": "APPROVED",
+    "mergeable": "MERGEABLE",
+    "commits": {
+     "nodes": [
+      {
+       "commit": {
+        "statusCheckRollup": null
+       }
+      }
+     ]
+    }
+   },
+   "pr999": null
   }
+ }
 }

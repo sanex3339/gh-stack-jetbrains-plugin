@@ -32,6 +32,19 @@ the plugin only reads its state files.
   conflicts open the IDE merge tool with Continue/Abort in a banner; sync divergence is detected
   and resolved in a dialog.
 - **Layer diff**: a branch's own changes against its parent — exactly what its PR shows.
+- **Activity log** under the tree: live output of every operation with Cancel, history and **Undo** (restores
+  local branches and the stack to before the last rebase, insert, remove, move or sync).
+- **Move Changes to Stack Layer…** (also in the Commit tool window's context menu): commit selected
+  uncommitted files on another layer, then rebase the layers above it.
+- **Merge status per PR**: draft, review required, changes requested, checks failing/running, conflicts,
+  approved, and `⛔ #N` when a lower layer blocks merging. Labels are clickable (PR, checks page, blocking
+  branch); hover for details. Statuses refresh every minute.
+- **Conflicts** open the IDE merge tool automatically, and the stack rebase continues once they're resolved —
+  also when you use the IDE's own "Continue Rebase".
+- **Agent tools (MCP)**: with the IDE's MCP server enabled (Settings ▸ Tools ▸ MCP Server), agents get
+  `stack_view`, `stack_checkout`, `stack_insert_branch`, `stack_remove_branch`, `stack_move_changes`,
+  `stack_rebase(_continue/_abort)`, `stack_push`, `stack_submit`, `stack_sync`, `stack_mark_ready` and
+  `stack_undo`, which run the same workflows as the UI and show up in the activity log.
 - `gh stack modify` and the interactive `submit` editor run in an IDE terminal tab.
 
 ## Shortcuts

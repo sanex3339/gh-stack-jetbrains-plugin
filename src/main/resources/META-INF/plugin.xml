@@ -27,8 +27,18 @@
     <p><i>Not affiliated with or endorsed by GitHub. GitHub is a trademark of GitHub, Inc.</i></p>
     ]]></description>
     <change-notes><![CDATA[
-    <p><b>0.1.1</b></p>
+    <p><b>0.2.0</b></p>
     <ul>
+      <li>Activity log under the stack tree: live output of every operation, with Cancel, history and Undo
+          (replaces the Console tab and most success notifications).</li>
+      <li>Undo the last local stack operation (rebase, insert, remove, move, sync).</li>
+      <li>Move Changes to Stack Layer: commit selected uncommitted files on another layer (also in the Commit tool window).</li>
+      <li>Conflicts open the IDE merge tool automatically; the stack rebase continues once they're resolved, also after
+          the IDE's own "Continue Rebase".</li>
+      <li>Tools for AI agents through the IDE's MCP server: view, check out, insert, remove, move changes, rebase,
+          push, submit, sync, mark ready, undo.</li>
+      <li>Toolbar grouped into Update, Publish and Edit Stack menus; compact, clickable status labels with detailed
+          tooltips; optional pull request titles; statuses refresh every minute.</li>
       <li>A spinner shows while switching branches, syncing, rebasing and other operations run.</li>
       <li>The current branch updates right after switching, without waiting for pull request status from GitHub.</li>
       <li>Push, Sync and Submit work in repositories whose rules limit how many branches one push may update
@@ -39,6 +49,9 @@
       <li>Mark Ready for Review for one pull request or the whole stack; new pull requests are created ready by default.</li>
       <li>Leaner stack switcher dropdown: the trunk is a row, Push, Submit and Insert Branch Above are in it,
           and the Up/Down/Top/Bottom items moved out (their shortcuts still work).</li>
+    </ul>
+    <p><b>0.1.1</b></p>
+    <ul>
       <li>Removed deprecated API usages.</li>
     </ul>
     <p><b>0.1.0</b>: first release</p>
@@ -53,6 +66,7 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>Git4Idea</depends>
     <depends optional="true" config-file="ghstack-terminal.xml">org.jetbrains.plugins.terminal</depends>
+    <depends optional="true" config-file="ghstack-mcp.xml">com.intellij.mcpServer</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <notificationGroup id="Stacked PRs" displayType="BALLOON"/>
@@ -191,6 +205,15 @@
         <action id="GhStack.CopyPrUrl" class="com.github.sanex3339.ghstack.actions.CopyPrUrlAction"
                 text="Copy Pull Request URL"/>
 
+        <action id="GhStack.MoveChanges" class="com.github.sanex3339.ghstack.actions.MoveChangesAction"
+                text="Move Changes to Stack Layer…" description="Commit selected uncommitted changes on another layer of the stack, then rebase the layers above it">
+            <add-to-group group-id="ChangesViewPopupMenu" anchor="last"/>
+        </action>
+        <action id="GhStack.Undo" class="com.github.sanex3339.ghstack.actions.UndoAction"
+                text="Undo Last Stack Operation" description="Put local branches and the stack back to before the last rebase, insert, remove, move or sync"/>
+        <action id="GhStack.ShowPrTitles" class="com.github.sanex3339.ghstack.actions.ShowPrTitlesAction"
+                text="Show Pull Request Titles" description="Show pull request titles instead of branch names in the stack tree"/>
+
         <!-- Misc -->
         <action id="GhStack.Refresh" class="com.github.sanex3339.ghstack.actions.RefreshAction"
                 text="Refresh" description="Re-check gh and reload the stacks"/>
@@ -204,21 +227,42 @@
         </action>
 
         <!-- Groups -->
-        <group id="GhStack.RebaseGroup" text="Rebase" popup="true" icon="AllIcons.Actions.Redo">
+        <group id="GhStack.UpdateGroup">
+            <reference ref="GhStack.Sync"/>
+            <reference ref="GhStack.SyncPrune"/>
+            <separator/>
             <reference ref="GhStack.Rebase"/>
             <reference ref="GhStack.RebaseUpstack"/>
             <reference ref="GhStack.RebaseDownstack"/>
+            <separator/>
+            <reference ref="GhStack.ResolveConflicts"/>
+            <reference ref="GhStack.RebaseContinue"/>
+            <reference ref="GhStack.RebaseAbort"/>
+        </group>
+        <group id="GhStack.PublishGroup">
+            <reference ref="GhStack.Push"/>
+            <reference ref="GhStack.Submit"/>
+            <reference ref="GhStack.MarkStackReady"/>
+            <separator/>
+            <reference ref="GhStack.Merge"/>
+        </group>
+        <group id="GhStack.EditGroup">
+            <reference ref="GhStack.AddBranch"/>
+            <reference ref="GhStack.InsertAbove"/>
+            <reference ref="GhStack.InsertBelow"/>
+            <reference ref="GhStack.RemoveFromStack"/>
+            <reference ref="GhStack.MoveChanges"/>
+            <separator/>
+            <reference ref="GhStack.NewStack"/>
+            <reference ref="GhStack.CheckoutStack"/>
+            <reference ref="GhStack.Unstack"/>
         </group>
         <group id="GhStack.MoreGroup" text="More" popup="true" icon="AllIcons.Actions.More">
-            <reference ref="GhStack.SyncPrune"/>
+            <reference ref="GhStack.Undo"/>
+            <reference ref="GhStack.ShowPrTitles"/>
+            <separator/>
             <reference ref="GhStack.SubmitInTerminal"/>
-            <separator/>
-            <reference ref="GhStack.InsertAbove"/>
-            <reference ref="GhStack.LayerDiff"/>
-            <separator/>
-            <reference ref="GhStack.CheckoutStack"/>
-            <reference ref="GhStack.NewStack"/>
-            <reference ref="GhStack.Unstack"/>
+            <reference ref="GhStack.Modify"/>
             <separator/>
             <reference ref="GhStack.Settings"/>
         </group>
@@ -226,16 +270,18 @@
             <reference ref="GhStack.RepoSelector"/>
             <reference ref="GhStack.Refresh"/>
             <separator/>
-            <reference ref="GhStack.Sync"/>
-            <reference ref="GhStack.RebaseGroup"/>
             <reference ref="GhStack.Push"/>
             <reference ref="GhStack.Submit"/>
-            <reference ref="GhStack.Merge"/>
             <separator/>
-            <reference ref="GhStack.AddBranch"/>
-            <reference ref="GhStack.InsertBelow"/>
-            <reference ref="GhStack.RemoveFromStack"/>
-            <reference ref="GhStack.Modify"/>
+            <group id="GhStack.UpdateMenu" text="Update" description="Sync and rebase" popup="true" icon="AllIcons.Actions.CheckOut">
+                <reference ref="GhStack.UpdateGroup"/>
+            </group>
+            <group id="GhStack.PublishMenu" text="Publish" description="Push, submit, mark ready and merge" popup="true" icon="AllIcons.Actions.Upload">
+                <reference ref="GhStack.PublishGroup"/>
+            </group>
+            <group id="GhStack.EditMenu" text="Edit Stack" description="Add, insert, remove and move layers" popup="true" icon="AllIcons.Actions.Edit">
+                <reference ref="GhStack.EditGroup"/>
+            </group>
             <reference ref="GhStack.MoreGroup"/>
         </group>
         <group id="GhStack.BranchPopup">
@@ -244,6 +290,7 @@
             <reference ref="GhStack.InsertBelow"/>
             <reference ref="GhStack.InsertAbove"/>
             <reference ref="GhStack.RemoveFromStack"/>
+            <reference ref="GhStack.MoveChanges"/>
             <reference ref="GhStack.LayerDiff"/>
             <reference ref="GhStack.RebaseUpstackFromHere"/>
             <separator/>
@@ -293,6 +340,8 @@
             <reference ref="GhStack.InsertBelow"/>
             <reference ref="GhStack.InsertAbove"/>
             <reference ref="GhStack.RemoveFromStack"/>
+            <reference ref="GhStack.MoveChanges"/>
+            <reference ref="GhStack.Undo"/>
             <reference ref="GhStack.Modify"/>
             <reference ref="GhStack.ModifyContinue"/>
             <reference ref="GhStack.ModifyAbort"/>

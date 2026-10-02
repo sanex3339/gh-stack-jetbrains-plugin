@@ -3,6 +3,7 @@ package com.github.sanex3339.ghstack.ui.toolwindow
 import com.github.sanex3339.ghstack.model.BranchStatus
 import com.github.sanex3339.ghstack.model.BranchUi
 import com.github.sanex3339.ghstack.model.StackUi
+import com.github.sanex3339.ghstack.settings.GhStackSettings
 import com.github.sanex3339.ghstack.state.BranchBadges
 import com.github.sanex3339.ghstack.ui.GhStackIcons
 import com.github.sanex3339.ghstack.ui.StatusGlyphs
@@ -21,6 +22,10 @@ data class BranchNode(override val stack: StackUi, val branch: BranchUi) : Stack
 
 data class TrunkNode(override val stack: StackUi) : StackTreeNode
 
+/**
+ * Branch rows: `» ○ name  #123  needs review  ⛔ #120`. Badges carry a [com.github.sanex3339.ghstack.state.BadgeLink]
+ * tag so clicks can open the PR / checks page or jump to the blocking branch; the tooltip spells everything out.
+ */
 class StackTreeRenderer : ColoredTreeCellRenderer() {
     override fun customizeCellRenderer(
         tree: JTree,
@@ -31,6 +36,7 @@ class StackTreeRenderer : ColoredTreeCellRenderer() {
         row: Int,
         hasFocus: Boolean,
     ) {
+        toolTipText = null
         when (val node = (value as? DefaultMutableTreeNode)?.userObject) {
             is StackNode -> {
                 icon = GhStackIcons.Stack
@@ -46,16 +52,21 @@ class StackTreeRenderer : ColoredTreeCellRenderer() {
                 val branch = node.branch
                 append(if (branch.isCurrent) "» " else "   ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
                 append(StatusGlyphs.glyph(branch.status) + "  ", StatusGlyphs.attributes(branch.status))
+                val title = branch.details?.title?.takeIf { it.isNotBlank() && GhStackSettings.getInstance().state.showPrTitles }
                 append(
-                    branch.name,
+                    title ?: branch.name,
                     when {
                         branch.isCurrent -> SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
                         branch.status == BranchStatus.MERGED -> SimpleTextAttributes.GRAYED_ATTRIBUTES
                         else -> SimpleTextAttributes.REGULAR_ATTRIBUTES
                     },
                 )
-                branch.pr?.let { append("   #${it.number}", SimpleTextAttributes.GRAYED_ATTRIBUTES) }
-                BranchBadges.of(branch).forEach { append("   ${it.text}", StatusGlyphs.badgeAttributes(it.tone)) }
+                branch.pr?.let { append("  #${it.number}", SimpleTextAttributes.GRAYED_ATTRIBUTES, branch.pr.url?.let(com.github.sanex3339.ghstack.state.BadgeLink::Url)) }
+                BranchBadges.of(branch, node.stack).forEach { badge ->
+                    append("  ")
+                    append(badge.compact, StatusGlyphs.badgeAttributes(badge.tone, clickable = badge.link != null), badge.link)
+                }
+                toolTipText = BranchBadges.tooltip(branch, node.stack)
             }
             is TrunkNode -> append("└ ${node.stack.trunk}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
             else -> Unit

@@ -9,8 +9,9 @@ sealed interface Banner {
     data object GhMissing : Banner
     data object ExtensionMissing : Banner
     data object NotAuthenticated : Banner
-    data class RebaseConflict(val branch: String?) : Banner
-    data class RemovalConflict(val removed: String, val branch: String?) : Banner
+    /** [files] still conflicted; [paused] = git isn't mid-rebase (the IDE finished or aborted that branch). */
+    data class RebaseConflict(val branch: String?, val files: List<String> = emptyList(), val paused: Boolean = false) : Banner
+    data class RemovalConflict(val removed: String, val branch: String?, val files: List<String> = emptyList(), val paused: Boolean = false) : Banner
     data class ModifyInterrupted(val phase: String) : Banner
     data object ModifyPendingSubmit : Banner
     data object StacksUnavailable : Banner
@@ -30,8 +31,10 @@ object Banners {
             is CliStatus.Ready, null -> Unit
         }
         when (val operation = state.operation) {
-            is OperationState.RebaseConflict -> return Banner.RebaseConflict(operation.branch)
-            is OperationState.RemovalStopped -> return Banner.RemovalConflict(operation.removed, operation.branch)
+            is OperationState.RebaseConflict ->
+                return Banner.RebaseConflict(operation.branch, state.conflictedFiles, paused = !state.gitRebaseInProgress)
+            is OperationState.RemovalStopped ->
+                return Banner.RemovalConflict(operation.removed, operation.branch, state.conflictedFiles, paused = !state.gitRebaseInProgress)
             is OperationState.ModifyInterrupted -> return Banner.ModifyInterrupted(operation.phase)
             OperationState.ModifyPendingSubmit -> return Banner.ModifyPendingSubmit
             OperationState.None -> Unit

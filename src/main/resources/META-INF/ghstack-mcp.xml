@@ -1,0 +1,6 @@
+<idea-plugin>
+    <!-- Tools for agents connected to the IDE's built-in MCP server. -->
+    <extensions defaultExtensionNs="com.intellij.mcpServer">
+        <mcpToolset implementation="com.github.sanex3339.ghstack.mcp.StackMcpToolset"/>
+    </extensions>
+</idea-plugin>

@@ -5,6 +5,7 @@ import com.github.sanex3339.ghstack.ide.StackStateListener
 import com.github.sanex3339.ghstack.ide.StackStateService
 import com.github.sanex3339.ghstack.model.BranchStatus
 import com.github.sanex3339.ghstack.model.StackUi
+import com.github.sanex3339.ghstack.state.BadgeLink
 import com.github.sanex3339.ghstack.state.Banners
 import com.github.sanex3339.ghstack.state.RepoState
 import com.github.sanex3339.ghstack.ui.GhStackCommands
@@ -15,10 +16,12 @@ import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DataSink
 import com.intellij.openapi.actionSystem.UiDataProvider
+import com.intellij.openapi.actionSystem.toolbarLayout.ToolbarLayoutStrategy
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.ui.DoubleClickListener
+import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.SimpleTextAttributes
@@ -26,16 +29,19 @@ import com.intellij.ui.TreeSpeedSearch
 import com.intellij.ui.components.JBLoadingPanel
 import com.intellij.ui.treeStructure.Tree
 import java.awt.BorderLayout
+import java.awt.Cursor
+import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.nio.file.Path
 import javax.swing.JPanel
+import javax.swing.ToolTipManager
 import javax.swing.event.TreeExpansionEvent
 import javax.swing.event.TreeExpansionListener
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 import javax.swing.tree.TreePath
 
-/** The "Stacks" tab: every local stack as a tree (branches top → bottom), toolbar and banner. */
+/** Every local stack as a tree (branches top → bottom) with toolbar and banner, and the activity log below it. */
 class StacksPanel(private val project: Project, parent: Disposable) : SimpleToolWindowPanel(true, true), UiDataProvider {
     private val rootNode = DefaultMutableTreeNode()
     private val model = DefaultTreeModel(rootNode)
@@ -43,6 +49,10 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
     private val banner = BannerPanel(project)
     private val loadingPanel = JBLoadingPanel(BorderLayout(), parent)
     private val expandedKeys = mutableSetOf<String>()
+    private val treeArea = JPanel(BorderLayout())
+    private val content = JPanel(BorderLayout())
+    private val splitter = OnePixelSplitter(true, "StackedPRs.ActivityLog.Split", 0.7f)
+    private val activityLog = ActivityLogPanel(project, parent) { collapsed -> layoutLog(collapsed) }
     private var shownRoot: Path? = null
     private var shownStacks: List<StackUi>? = null
 
@@ -50,6 +60,8 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
         tree.isRootVisible = false
         tree.showsRootHandles = true
         tree.cellRenderer = StackTreeRenderer()
+        ToolTipManager.sharedInstance().registerComponent(tree)
+        installBadgeLinks()
         TreeSpeedSearch.installOn(tree, false) { path -> speedSearchText(path) }
         PopupHandler.installPopupMenu(tree, "GhStack.BranchPopup", "GhStackTree")
         object : DoubleClickListener() {
@@ -73,14 +85,14 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
         val actionManager = ActionManager.getInstance()
         val toolbar = actionManager.createActionToolbar("GhStackToolWindow", actionManager.getAction("GhStack.ToolWindow.Toolbar") as ActionGroup, true)
         toolbar.targetComponent = this
+        // Wrap onto a second row instead of hiding buttons behind a chevron when the tool window is narrow.
+        toolbar.layoutStrategy = ToolbarLayoutStrategy.WRAP_STRATEGY
         setToolbar(toolbar.component)
         loadingPanel.add(ScrollPaneFactory.createScrollPane(tree, true), BorderLayout.CENTER)
-        setContent(
-            JPanel(BorderLayout()).apply {
-                add(loadingPanel, BorderLayout.CENTER)
-                add(banner, BorderLayout.SOUTH)
-            },
-        )
+        treeArea.add(loadingPanel, BorderLayout.CENTER)
+        treeArea.add(banner, BorderLayout.SOUTH)
+        layoutLog(activityLog.collapsed)
+        setContent(content)
 
         project.messageBus.connect(parent).subscribe(
             StackStateService.TOPIC,
@@ -90,13 +102,64 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
         StackStateService.getInstance(project).requestAllLive()
     }
 
+    /** Expanded: tree and log share a resizable split. Collapsed: only the log's header sits under the tree. */
+    private fun layoutLog(collapsed: Boolean) {
+        content.removeAll()
+        if (collapsed) {
+            splitter.firstComponent = null
+            splitter.secondComponent = null
+            content.add(treeArea, BorderLayout.CENTER)
+            content.add(activityLog, BorderLayout.SOUTH)
+        } else {
+            splitter.firstComponent = treeArea
+            splitter.secondComponent = activityLog
+            content.add(splitter, BorderLayout.CENTER)
+        }
+        content.revalidate()
+        content.repaint()
+    }
+
+    /** Badges carry a [BadgeLink] tag: open the PR / checks page, or jump to the blocking branch. */
+    private fun installBadgeLinks() {
+        fun linkAt(event: MouseEvent): BadgeLink? {
+            val path = tree.getPathForLocation(event.x, event.y) ?: return null
+            val bounds = tree.getPathBounds(path) ?: return null
+            val row = tree.getRowForPath(path)
+            val renderer = tree.cellRenderer.getTreeCellRendererComponent(
+                tree, path.lastPathComponent, tree.isRowSelected(row), tree.isExpanded(row), model.isLeaf(path.lastPathComponent), row, false,
+            ) as? StackTreeRenderer ?: return null
+            renderer.bounds = bounds
+            return renderer.getFragmentTagAt(event.x - bounds.x) as? BadgeLink
+        }
+        val mouse = object : MouseAdapter() {
+            override fun mouseClicked(event: MouseEvent) {
+                if (event.button != MouseEvent.BUTTON1 || event.clickCount != 1) return
+                when (val link = linkAt(event)) {
+                    is BadgeLink.Url -> GhStackCommands.openPr(link.url)
+                    is BadgeLink.Branch -> select(link.name)
+                    null -> return
+                }
+                event.consume()
+            }
+
+            override fun mouseMoved(event: MouseEvent) {
+                tree.cursor = if (linkAt(event) != null) Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) else Cursor.getDefaultCursor()
+            }
+        }
+        tree.addMouseListener(mouse)
+        tree.addMouseMotionListener(mouse)
+    }
+
     private fun refresh() {
         val state = StackStateService.getInstance(project).activeState()
         banner.update(Banners.of(state))
         updateEmptyText(state)
         updateProgress(state)
         val stacks = state?.stacks.orEmpty()
-        if (stacks == shownStacks && state?.root == shownRoot) return
+        if (stacks == shownStacks && state?.root == shownRoot) {
+            tree.repaint()
+            return
+        }
         val previouslySelected = (selectedNode() as? BranchNode)?.branch?.name
         shownStacks = stacks
         shownRoot = state?.root

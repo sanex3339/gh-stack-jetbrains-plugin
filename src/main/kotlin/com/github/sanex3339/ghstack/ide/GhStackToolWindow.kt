@@ -5,13 +5,10 @@ import com.intellij.openapi.wm.ToolWindowManager
 
 object GhStackToolWindow {
     const val ID = "Stacked PRs"
-    const val CONSOLE_TAB = "Console"
 
-    /** Must be called on the EDT. */
-    fun show(project: Project, console: Boolean = false) {
+    /** Must be called on the EDT. [revealLog] also expands the activity log. */
+    fun show(project: Project, revealLog: Boolean = false) {
         val window = ToolWindowManager.getInstance(project).getToolWindow(ID) ?: return
-        window.activate {
-            if (console) window.contentManager.findContent(CONSOLE_TAB)?.let { window.contentManager.setSelectedContent(it) }
-        }
+        window.activate { if (revealLog) OperationLog.getInstance(project).reveal() }
     }
 }

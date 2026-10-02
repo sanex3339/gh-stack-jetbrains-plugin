@@ -2,25 +2,31 @@ package com.github.sanex3339.ghstack.ui
 
 import com.github.sanex3339.ghstack.cli.CliStatus
 import com.github.sanex3339.ghstack.cli.CommandRequest
-import com.github.sanex3339.ghstack.ide.GhStackConsole
+import com.github.sanex3339.ghstack.ide.EntryStatus
 import com.github.sanex3339.ghstack.ide.GhStackNotifier
 import com.github.sanex3339.ghstack.ide.GhStackOperations
 import com.github.sanex3339.ghstack.ide.IdeEnvironment
+import com.github.sanex3339.ghstack.ide.LineKind
+import com.github.sanex3339.ghstack.ide.OperationLog
+import com.github.sanex3339.ghstack.ide.OperationScope
 import com.github.sanex3339.ghstack.ide.StackStateService
 import com.github.sanex3339.ghstack.model.BranchStatus
-import com.github.sanex3339.ghstack.model.StackUi
 import com.github.sanex3339.ghstack.model.OperationState
 import com.github.sanex3339.ghstack.model.RemoveMode
+import com.github.sanex3339.ghstack.model.StackUi
 import com.github.sanex3339.ghstack.ops.InsertBranchWorkflow
+import com.github.sanex3339.ghstack.ops.MoveChangesWorkflow
+import com.github.sanex3339.ghstack.ops.MoveOutcome
 import com.github.sanex3339.ghstack.ops.PushOutcome
-import com.github.sanex3339.ghstack.ops.StackPusher
 import com.github.sanex3339.ghstack.ops.RemovalOutcome
 import com.github.sanex3339.ghstack.ops.RemoveBranchWorkflow
 import com.github.sanex3339.ghstack.ops.RepoSnapshot
+import com.github.sanex3339.ghstack.ops.StackPusher
 import com.github.sanex3339.ghstack.ops.SubmitOutcome
 import com.github.sanex3339.ghstack.ops.SubmitWorkflow
 import com.github.sanex3339.ghstack.ops.SyncOutcome
 import com.github.sanex3339.ghstack.ops.SyncWorkflow
+import com.github.sanex3339.ghstack.ops.UndoWorkflow
 import com.github.sanex3339.ghstack.ops.orAbort
 import com.github.sanex3339.ghstack.planning.BranchNames
 import com.github.sanex3339.ghstack.planning.InsertCheck
@@ -35,10 +41,12 @@ import com.github.sanex3339.ghstack.terminal.GhStackTerminal
 import com.github.sanex3339.ghstack.terminal.TerminalCommands
 import com.github.sanex3339.ghstack.ui.dialogs.AddBranchDialog
 import com.github.sanex3339.ghstack.ui.dialogs.MergeDialog
+import com.github.sanex3339.ghstack.ui.dialogs.MoveChangesDialog
 import com.github.sanex3339.ghstack.ui.dialogs.NewStackDialog
 import com.github.sanex3339.ghstack.ui.dialogs.RemoveBranchDialog
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.progress.ProgressIndicator
@@ -47,6 +55,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.InputValidatorEx
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.vcs.changes.ChangeListManager
 import java.awt.datatransfer.StringSelection
 import java.nio.file.Path
 
@@ -76,7 +85,7 @@ object GhStackCommands {
 
     fun checkout(project: Project, branch: String) = ops(project).run("Check out $branch", progressText = "Switching to $branch…") {
         ensurePushRemote()
-        stack("checkout", branch)
+        if (stack("checkout", branch).ok) success("Switched to $branch")
     }
 
     fun checkoutStack(project: Project) {
@@ -84,62 +93,56 @@ object GhStackCommands {
         if (target.isNullOrEmpty()) return
         ops(project).run("Check out stack $target") {
             ensurePushRemote()
-            stack("checkout", target)
+            if (stack("checkout", target).ok) success("Checked out $target")
         }
     }
 
     // ── Remote operations ─────────────────────────────────────────────────────
 
-    fun sync(project: Project, prune: Boolean) = ops(project).run(if (prune) "Sync and prune" else "Sync") {
+    fun sync(project: Project, prune: Boolean) = ops(project).run(if (prune) "Sync and prune" else "Sync", progressText = "Syncing…", undoable = true) {
         ensurePushRemote()
         when (SyncWorkflow(cli, gitDir, prompts).run(prune, snapshot())) {
-            SyncOutcome.SYNCED -> GhStackNotifier.info(project, "Stack synced")
-            SyncOutcome.SYNCED_PUSHED_IN_BATCHES -> GhStackNotifier.info(
-                project,
-                "Stack synced",
-                "This repository limits how many branches one push may update, so the branches were pushed in batches.",
-            )
-            SyncOutcome.CONFLICT -> GhStackNotifier.warn(
-                project,
+            SyncOutcome.SYNCED -> success("Stack synced")
+            SyncOutcome.SYNCED_PUSHED_IN_BATCHES ->
+                success("Stack synced (this repository limits how many branches one push may update, so they were pushed in batches)")
+            SyncOutcome.CONFLICT -> warn(
                 "Sync hit a conflict, so nothing was changed",
                 "Rebase the stack to resolve the conflicts one branch at a time.",
                 GhStackNotifier.action("Rebase to resolve") { rebase(project, RebaseMode.STACK) },
             )
             SyncOutcome.STACKS_UNAVAILABLE -> {
                 StackStateService.getInstance(project).markStacksUnavailable(root)
-                GhStackNotifier.error(project, "Stacked PRs aren't enabled for this repository")
+                error("Stacked PRs aren't enabled for this repository")
             }
             SyncOutcome.OPEN_TERMINAL -> invokeLater { runInTerminal(project, "sync") }
-            SyncOutcome.CANCELLED -> Unit
+            SyncOutcome.CANCELLED -> info("Sync cancelled")
         }
     }
 
     fun push(project: Project) = ops(project).run("Push", progressText = "Pushing…") {
         ensurePushRemote()
         when (val outcome = StackPusher(cli).push()) {
-            is PushOutcome.Pushed -> outcome.batchSize?.let {
-                GhStackNotifier.info(project, "Pushed in batches of $it", "This repository limits how many branches one push may update.")
-            }
+            is PushOutcome.Pushed -> success(
+                outcome.batchSize?.let { "Pushed in batches of $it (this repository limits how many branches one push may update)" } ?: "Pushed",
+            )
             is PushOutcome.Failed -> report(outcome.result, "gh stack push")
         }
     }
 
-    fun submit(project: Project) = ops(project).run("Submit") {
+    fun submit(project: Project) = ops(project).run("Submit", progressText = "Submitting…") {
         ensurePushRemote()
         val workflow = SubmitWorkflow(cli, gitDir, prompts, GhStackSettings.getInstance().state.draftByDefault)
         when (workflow.run(snapshot())) {
-            SubmitOutcome.SUBMITTED -> GhStackNotifier.info(project, "Stack submitted")
-            SubmitOutcome.STOPPED_ON_CONFLICT -> GhStackNotifier.warn(
-                project,
-                "Rebase stopped on a conflict",
-                "Resolve it, continue the rebase, then submit again.",
-                GhStackNotifier.action("Resolve conflicts…") { resolveConflicts(project) },
-            )
+            SubmitOutcome.SUBMITTED -> success("Stack submitted")
+            SubmitOutcome.STOPPED_ON_CONFLICT -> {
+                warn("Rebase stopped on a conflict", "Resolve it, continue the rebase, then submit again.")
+                openConflicts()
+            }
             SubmitOutcome.STACKS_UNAVAILABLE -> {
                 StackStateService.getInstance(project).markStacksUnavailable(root)
-                GhStackNotifier.error(project, "Stacked PRs aren't enabled for this repository")
+                error("Stacked PRs aren't enabled for this repository")
             }
-            SubmitOutcome.CANCELLED -> Unit
+            SubmitOutcome.CANCELLED -> info("Submit cancelled")
         }
     }
 
@@ -150,7 +153,7 @@ object GhStackCommands {
         val what = if (prNumbers.size == 1) "#${prNumbers.single()}" else "${prNumbers.size} pull requests"
         ops(project).run("Mark ready for review", progressText = "Marking $what ready…") {
             prNumbers.forEach { cli.gh("pr", "ready", it.toString()).orAbort("Marking #$it ready for review") }
-            GhStackNotifier.info(project, "Marked $what ready for review")
+            success("Marked $what ready for review")
         }
     }
 
@@ -167,20 +170,20 @@ object GhStackCommands {
         val pr = dialog.selectedPr()
         val method = dialog.method()
         settings.state.lastMergeMethod = method
-        ops(project).run("Merge stack") {
-            val result = stack("merge", pr.toString(), "--yes", method.flag)
-            if (result.ok) {
-                GhStackNotifier.info(project, "Merge of #$pr started", result.summary(), GhStackNotifier.action("Sync and prune") { sync(project, prune = true) })
+        ops(project).run("Merge stack", progressText = "Merging…") {
+            if (stack("merge", pr.toString(), "--yes", method.flag).ok) {
+                success("Merge of #$pr started; sync and prune once GitHub has merged it")
+                GhStackNotifier.info(project, "Merge of #$pr started", "Sync and prune once GitHub has merged it.", GhStackNotifier.action("Sync and prune") { sync(project, prune = true) })
             }
         }
     }
 
     // ── Rebase & conflicts ────────────────────────────────────────────────────
 
-    fun rebase(project: Project, mode: RebaseMode, fromBranch: String? = null) = ops(project).run(mode.title) {
+    fun rebase(project: Project, mode: RebaseMode, fromBranch: String? = null) = ops(project).run(mode.title, undoable = true) {
         ensurePushRemote()
         if (fromBranch != null && fromBranch != state.currentBranch) cli.git("checkout", fromBranch).orAbort("Switching to $fromBranch")
-        stack(*mode.args)
+        if (stack(*mode.args).ok) success("${mode.title}: done")
     }
 
     fun rebaseContinue(project: Project) {
@@ -188,12 +191,8 @@ object GhStackCommands {
     }
 
     private fun continueStackRebase(project: Project) = ops(project).run("Continue rebase") {
-        val unmerged = ConflictResolver.unmergedFiles(cli)
-        if (unmerged.isNotEmpty()) {
-            invokeLater { ConflictResolver.showMergeDialog(project, unmerged) }
-            GhStackNotifier.info(project, "Resolve the remaining conflicts first", "Then click Continue again.")
-        } else {
-            stack("rebase", "--continue")
+        if (!openRemainingConflicts()) {
+            if (stack("rebase", "--continue").ok) success("Stack rebase finished")
         }
     }
 
@@ -201,18 +200,20 @@ object GhStackCommands {
         if (state(project)?.operation is OperationState.RemovalStopped) return removeAbort(project)
         val confirmed = MessageDialogBuilder.yesNo("Abort Rebase", "Abort the stack rebase and restore every branch to where it was?")
             .yesText("Abort Rebase").noText("Keep Going").ask(project)
-        if (confirmed) ops(project).run("Abort rebase") { stack("rebase", "--abort") }
+        if (confirmed) ops(project).run("Abort rebase") { if (stack("rebase", "--abort").ok) success("Rebase aborted; every branch is back where it was") }
     }
 
     fun resolveConflicts(project: Project) = ops(project).run("Find conflicts") {
+        if (!openRemainingConflicts()) info("No conflicted files. Continue to resume the rebase.")
+    }
+
+    /** Opens the merge tool when conflicts remain; `true` if there were some. */
+    private fun OperationScope.openRemainingConflicts(): Boolean {
         val files = ConflictResolver.unmergedFiles(cli)
-        invokeLater {
-            if (files.isEmpty()) {
-                GhStackNotifier.info(project, "No conflicted files", "Click Continue to resume the rebase.")
-            } else {
-                ConflictResolver.showMergeDialog(project, files)
-            }
-        }
+        if (files.isEmpty()) return false
+        info("${files.size} conflicted file(s): ${files.joinToString(", ") { root.relativize(it).toString() }}")
+        invokeLater { ConflictResolver.resolve(project, files) }
+        return true
     }
 
     // ── Structure ─────────────────────────────────────────────────────────────
@@ -224,10 +225,10 @@ object GhStackCommands {
         val dialog = AddBranchDialog(project, top)
         if (!dialog.showAndGet()) return
         val request = dialog.request()
-        ops(project).run("Add branch") {
+        ops(project).run("Add branch", undoable = true) {
             // gh stack add only works from the top of the stack.
             if (state.currentBranch != top) cli.git("checkout", top).orAbort("Switching to $top")
-            stack(*request.args().toTypedArray())
+            if (stack(*request.args().toTypedArray()).ok) success("Added a branch on top of $top")
         }
     }
 
@@ -251,9 +252,9 @@ object GhStackCommands {
                     .yesText("Rebase").ask(project)
                 if (rebaseNow) rebase(project, RebaseMode.STACK)
             }
-            is InsertCheck.Ready -> ops(project).run("Insert ${check.plan.newBranch}") {
+            is InsertCheck.Ready -> ops(project).run("Insert ${check.plan.newBranch}", undoable = true) {
                 InsertBranchWorkflow(cli, gitDir).run(check.plan, state.currentBranch)
-                GhStackNotifier.info(project, "Created ${check.plan.newBranch}", "Move changes into it and commit, then Submit to publish it with a pull request.")
+                success("Created ${check.plan.newBranch}. Move changes into it and commit, then Submit to publish it with a pull request.")
             }
         }
     }
@@ -289,21 +290,17 @@ object GhStackCommands {
                     .yesText("Rebase").ask(project)
                 if (rebaseNow) rebase(project, RebaseMode.STACK)
             }
-            is RemovalCheck.Ready -> ops(project).run("Remove $name") {
+            is RemovalCheck.Ready -> ops(project).run("Remove $name", undoable = true) {
                 val snapshot = RepoSnapshot(stack, state.currentBranch.orEmpty(), state.repository, state.operation)
-                reportRemoval(project, name, RemoveBranchWorkflow(cli, gitDir).start(check.plan, options, snapshot))
+                reportRemoval(name, RemoveBranchWorkflow(cli, gitDir).start(check.plan, options, snapshot))
             }
         }
     }
 
     fun removeContinue(project: Project) = ops(project).run("Continue removing branch") {
-        val unmerged = ConflictResolver.unmergedFiles(cli)
-        if (unmerged.isNotEmpty()) {
-            invokeLater { ConflictResolver.showMergeDialog(project, unmerged) }
-            GhStackNotifier.info(project, "Resolve the remaining conflicts first", "Then click Continue again.")
-        } else {
+        if (!openRemainingConflicts()) {
             val removed = (state.operation as? OperationState.RemovalStopped)?.removed ?: "branch"
-            reportRemoval(project, removed, RemoveBranchWorkflow(cli, gitDir).resume())
+            reportRemoval(removed, RemoveBranchWorkflow(cli, gitDir).resume())
         }
     }
 
@@ -313,28 +310,85 @@ object GhStackCommands {
         if (confirmed) {
             ops(project).run("Abort removing branch") {
                 RemoveBranchWorkflow(cli, gitDir).abort()
-                GhStackNotifier.info(project, "Branch removal undone")
+                success("Branch removal undone")
             }
         }
     }
 
-    private fun reportRemoval(project: Project, removed: String, outcome: RemovalOutcome) {
+    private fun OperationScope.reportRemoval(removed: String, outcome: RemovalOutcome) {
         when (outcome) {
             is RemovalOutcome.Done -> {
                 val where = if (outcome.githubUpdated) "locally and on GitHub" else "locally"
-                val details = outcome.warnings.joinToString("\n")
                 if (outcome.warnings.isEmpty()) {
-                    GhStackNotifier.info(project, "Removed $removed from the stack", "The stack was updated $where.")
+                    success("Removed $removed from the stack, $where")
                 } else {
-                    GhStackNotifier.warn(project, "Removed $removed from the stack, with problems", details)
+                    warn("Removed $removed from the stack, with problems", outcome.warnings.joinToString("\n"))
                 }
             }
-            is RemovalOutcome.StoppedOnConflict -> GhStackNotifier.warn(
-                project,
-                "Removing $removed stopped on a conflict in ${outcome.branch}",
-                "Resolve it, then Continue, or Abort to put everything back.",
-                GhStackNotifier.action("Resolve conflicts…") { resolveConflicts(project) },
-            )
+            is RemovalOutcome.StoppedOnConflict -> {
+                warn("Removing $removed stopped on a conflict in ${outcome.branch}", "Resolve it, then Continue, or Abort to put everything back.")
+                openConflicts()
+            }
+        }
+    }
+
+    /**
+     * Moves uncommitted changes into another layer of the current stack. [preselected] files (e.g. the
+     * selection in the Commit tool window) start checked; [target] preselects the destination layer.
+     */
+    fun moveChanges(project: Project, preselected: Collection<Path> = emptyList(), target: String? = null) {
+        val repoState = state(project) ?: return
+        val stack = repoState.currentStack ?: return
+        val current = repoState.currentBranch ?: return
+        FileDocumentManager.getInstance().saveAllDocuments()
+        val changed = changedFiles(project, repoState.root)
+        if (changed.isEmpty()) {
+            Messages.showInfoMessage(project, "There are no uncommitted changes to move.", "Move Changes to Layer")
+            return
+        }
+        val layers = stack.activeBranches.map { it.name }.filter { it != current }
+        if (layers.isEmpty()) {
+            Messages.showInfoMessage(project, "The stack has no other layer to move changes to.", "Move Changes to Layer")
+            return
+        }
+        val selected = preselected.mapNotNull { path -> runCatching { repoState.root.relativize(path).toString() }.getOrNull() }.toSet()
+        val dialog = MoveChangesDialog(project, changed, selected.ifEmpty { changed.toSet() }, layers, target ?: stack.activeParentOf(current).takeIf { it in layers } ?: layers.first())
+        if (!dialog.showAndGet()) return
+        val request = dialog.request()
+        ops(project).run("Move changes to ${request.target}", progressText = "Moving changes to ${request.target}…", undoable = true) {
+            when (MoveChangesWorkflow(cli).run(request.paths, request.target, request.message, current)) {
+                MoveOutcome.Moved -> success("Committed ${request.paths.size} file(s) on ${request.target} and rebased the layers above it")
+                is MoveOutcome.StoppedOnConflict -> {
+                    warn("The changes are committed on ${request.target}, but rebasing the layers above stopped on a conflict", "Resolve it, then Continue.")
+                    openConflicts()
+                }
+            }
+        }
+    }
+
+    private fun changedFiles(project: Project, root: Path): List<String> {
+        val manager = ChangeListManager.getInstance(project)
+        val tracked = manager.allChanges.mapNotNull { (it.afterRevision ?: it.beforeRevision)?.file?.path }
+        val untracked = manager.unversionedFilesPaths.map { it.path }
+        return (tracked + untracked)
+            .mapNotNull { path -> Path.of(path).takeIf { it.startsWith(root) }?.let { root.relativize(it).toString() } }
+            .distinct()
+            .sorted()
+    }
+
+    fun undo(project: Project) {
+        val root = state(project)?.root ?: return
+        val title = ops(project).undoTitle(root) ?: return
+        val confirmed = MessageDialogBuilder.yesNo(
+            "Undo $title",
+            "Put every branch and the stack back to where they were before \"$title\"?\n\n" +
+                "Only local branches are restored. Anything already pushed or changed on GitHub stays; push or submit again afterwards.",
+        ).yesText("Undo").noText("Cancel").ask(project)
+        if (!confirmed) return
+        ops(project).run("Undo $title", progressText = "Undoing $title…") {
+            UndoWorkflow(cli, gitDir).undo()
+            GhStackOperations.getInstance(project).forgetUndo(root)
+            success("Restored the stack to before \"$title\"")
         }
     }
 
@@ -343,7 +397,7 @@ object GhStackCommands {
         val dialog = NewStackDialog(project, localBranches(project, repoState.root).sorted())
         if (!dialog.showAndGet()) return
         val request = dialog.request()
-        ops(project).run("Create stack") { stack(*request.args().toTypedArray()) }
+        ops(project).run("Create stack", undoable = true) { if (stack(*request.args().toTypedArray()).ok) success("Stack created") }
     }
 
     fun unstack(project: Project) {
@@ -357,8 +411,8 @@ object GhStackCommands {
             Messages.getQuestionIcon(),
         )
         when (choice) {
-            0 -> ops(project).run("Unstack locally") { stack("unstack", "--local") }
-            1 -> ops(project).run("Unstack") { stack("unstack") }
+            0 -> ops(project).run("Unstack locally", undoable = true) { if (stack("unstack", "--local").ok) success("Stopped tracking ${stack.title} locally") }
+            1 -> ops(project).run("Unstack") { if (stack("unstack").ok) success("Unstacked ${stack.title}") }
         }
     }
 
@@ -369,7 +423,7 @@ object GhStackCommands {
     fun modifyAbort(project: Project) {
         val confirmed = MessageDialogBuilder.yesNo("Abort Modify", "Abort the modify session and restore the stack to its previous state?")
             .yesText("Abort Modify").noText("Cancel").ask(project)
-        if (confirmed) ops(project).run("Abort modify") { stack("modify", "--abort") }
+        if (confirmed) ops(project).run("Abort modify") { if (stack("modify", "--abort").ok) success("Modify aborted") }
     }
 
     // ── Setup ─────────────────────────────────────────────────────────────────
@@ -388,13 +442,21 @@ object GhStackCommands {
     fun installExtension(project: Project) {
         val repoState = state(project) ?: return
         val status = repoState.cliStatus as? CliStatus.ExtensionMissing ?: return
+        val log = OperationLog.getInstance(project)
         object : Task.Backgroundable(project, "Installing the gh stack extension", false) {
             override fun run(indicator: ProgressIndicator) {
+                val entry = log.start("Install gh stack", "Installing the gh stack extension…", repoState.root)
                 val result = IdeEnvironment.runner().run(
                     CommandRequest(repoState.root, listOf(status.ghPath, "extension", "install", "github/gh-stack")),
-                    GhStackConsole.getInstance(project),
+                    log.sink(entry),
                 )
-                if (result.ok) GhStackNotifier.info(project, "gh stack installed") else GhStackNotifier.error(project, "Installing gh stack failed", result.summary())
+                if (result.ok) {
+                    log.add(entry, "gh stack installed", LineKind.SUCCESS)
+                } else {
+                    log.add(entry, "Installing gh stack failed: ${result.summary()}", LineKind.ERROR)
+                    GhStackNotifier.error(project, "Installing gh stack failed", result.summary())
+                }
+                log.finish(entry, if (result.ok) EntryStatus.SUCCEEDED else EntryStatus.FAILED)
             }
 
             override fun onFinished() = StackStateService.getInstance(project).recheckCli()

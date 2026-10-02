@@ -35,10 +35,13 @@ class BannersTest {
 
     @Test
     fun `in-progress operations`() {
-        assertEquals(Banner.RebaseConflict("api"), Banners.of(base.copy(operation = OperationState.RebaseConflict("api"))))
+        val stopped = base.copy(operation = OperationState.RebaseConflict("api"), gitRebaseInProgress = true)
+        assertEquals(Banner.RebaseConflict("api", listOf("a.txt"), paused = false), Banners.of(stopped.copy(conflictedFiles = listOf("a.txt"))))
+        assertEquals(Banner.RebaseConflict("api", emptyList(), paused = false), Banners.of(stopped), "all resolved, git still mid-rebase")
+        assertEquals(Banner.RebaseConflict("api", emptyList(), paused = true), Banners.of(stopped.copy(gitRebaseInProgress = false)), "the IDE finished or aborted that branch")
         assertEquals(Banner.ModifyInterrupted("conflict"), Banners.of(base.copy(operation = OperationState.ModifyInterrupted("conflict"))))
         assertEquals(Banner.ModifyPendingSubmit, Banners.of(base.copy(operation = OperationState.ModifyPendingSubmit)))
-        assertEquals(Banner.RemovalConflict("api", "ui"), Banners.of(base.copy(operation = OperationState.RemovalStopped("api", "ui"))))
+        assertEquals(Banner.RemovalConflict("api", "ui", paused = false), Banners.of(base.copy(operation = OperationState.RemovalStopped("api", "ui"), gitRebaseInProgress = true)))
     }
 
     @Test

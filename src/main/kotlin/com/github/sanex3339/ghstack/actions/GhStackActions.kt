@@ -14,15 +14,19 @@ import com.github.sanex3339.ghstack.ui.GhStackCommands
 import com.github.sanex3339.ghstack.ui.GhStackDataKeys
 import com.github.sanex3339.ghstack.ui.RebaseMode
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.ToggleAction
 import com.intellij.openapi.actionSystem.ex.ComboBoxAction
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vcs.VcsDataKeys
+import com.github.sanex3339.ghstack.settings.GhStackSettings
 import java.nio.file.Path
 import javax.swing.Icon
 import javax.swing.JComponent
@@ -368,5 +372,56 @@ class RepoSelectorAction : ComboBoxAction(), DumbAware {
                 }
             },
         )
+    }
+}
+
+// ── Undo, move changes, titles ─────────────────────────────────
+
+/** Reverts the last undoable operation's local changes ("Undo Rebase stack"). */
+class UndoAction : GhStackAction(AllIcons.Actions.Undo) {
+    override fun update(e: AnActionEvent) {
+        super.update(e)
+        val project = e.project ?: return
+        val root = StackStateService.getInstance(project).activeRoot() ?: return
+        val title = GhStackOperations.getInstance(project).undoTitle(root)
+        e.presentation.text = title?.let { "Undo $it" } ?: "Undo Last Stack Operation"
+    }
+
+    override fun isEnabled(state: RepoState, e: AnActionEvent): Boolean =
+        state.operation == OperationState.None && e.project?.let { GhStackOperations.getInstance(it).undoTitle(state.root) } != null
+
+    override fun perform(project: Project, e: AnActionEvent) = GhStackCommands.undo(project)
+}
+
+/**
+ * Moves uncommitted changes into another layer. From the Commit tool window the selected files start
+ * checked; from a branch in the stack tree that branch is the destination.
+ */
+class MoveChangesAction : GhStackAction() {
+    override fun isEnabled(state: RepoState, e: AnActionEvent): Boolean {
+        val stack = state.currentStack ?: return false
+        val target = e.getData(GhStackDataKeys.SELECTED_BRANCH)?.branch
+        if (target != null && (target.isCurrent || target.status == BranchStatus.MERGED || !target.let { b -> stack.branch(b.name) != null })) return false
+        return state.operation == OperationState.None && stack.activeBranches.size > 1
+    }
+
+    override fun perform(project: Project, e: AnActionEvent) {
+        val selectedFiles = buildList {
+            e.getData(VcsDataKeys.CHANGES)?.forEach { change -> (change.afterRevision ?: change.beforeRevision)?.file?.path?.let { add(Path.of(it)) } }
+            e.getData(VcsDataKeys.VIRTUAL_FILES)?.forEach { add(it.toNioPath()) }
+        }
+        GhStackCommands.moveChanges(project, selectedFiles, e.getData(GhStackDataKeys.SELECTED_BRANCH)?.branch?.name)
+    }
+}
+
+class ShowPrTitlesAction : ToggleAction(), DumbAware {
+    override fun getActionUpdateThread() = ActionUpdateThread.BGT
+
+    override fun isSelected(e: AnActionEvent): Boolean = GhStackSettings.getInstance().state.showPrTitles
+
+    override fun setSelected(e: AnActionEvent, state: Boolean) {
+        GhStackSettings.getInstance().state.showPrTitles = state
+        val project = e.project ?: return
+        StackStateService.getInstance(project).activeRoot()?.let { StackStateService.getInstance(project).notifyChanged(it) }
     }
 }

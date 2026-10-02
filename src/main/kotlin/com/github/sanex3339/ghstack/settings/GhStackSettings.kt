@@ -30,6 +30,7 @@ class GhStackSettings : SimplePersistentStateComponent<GhStackSettings.SettingsS
     class SettingsState : BaseState() {
         var ghPath by string()
         var draftByDefault by property(false)
+        var showPrTitles by property(false)
         var mergePreference by enum(MergeMethodPreference.REMEMBER_LAST)
         var lastMergeMethod by enum(MergeMethod.SQUASH)
     }

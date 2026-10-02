@@ -20,14 +20,19 @@ class PrDetailsTest {
         assertTrue(query.startsWith("""query { repository(owner: "octo", name: "app") {"""), query)
         assertEquals(2, Regex("""pullRequest\(number: """).findAll(query).count())
         assertTrue("pr102: pullRequest(number: 102)" in query)
-        assertTrue("statusCheckRollup { state }" in query)
+        assertTrue("statusCheckRollup { state contexts(first: 100)" in query)
+        assertTrue("number title isDraft" in query)
     }
 
     @Test
     fun `parses draft, review, checks and conflicts`() {
-        assertEquals(PrDetails(101, isDraft = true, review = ReviewState.NONE, checks = ChecksState.PASSING, conflicting = false), details[101])
+        assertEquals(PrDetails(101, isDraft = true, review = ReviewState.NONE, checks = ChecksState.PASSING, conflicting = false, title = "Add auth"), details[101])
         assertEquals(PrDetails(102, isDraft = false, review = ReviewState.REVIEW_REQUIRED, checks = ChecksState.PENDING, conflicting = false), details[102])
-        assertEquals(PrDetails(103, isDraft = false, review = ReviewState.APPROVED, checks = ChecksState.FAILING, conflicting = true), details[103])
+        assertEquals(
+            PrDetails(103, isDraft = false, review = ReviewState.APPROVED, checks = ChecksState.FAILING, conflicting = true, title = "Add UI",
+                failingChecks = listOf("build", "ci/legacy"), pendingChecks = listOf("e2e")),
+            details[103],
+        )
         assertEquals(ChecksState.NONE, details[104]!!.checks)
         assertEquals(setOf(101, 102, 103, 104), details.keys)
         assertEquals(emptyMap<Int, PrDetails>(), PrDetailsQuery.parse("not json"))

@@ -16,6 +16,7 @@ import com.github.sanex3339.ghstack.model.ViewJsonParser
 import com.github.sanex3339.ghstack.model.ViewSnapshot
 import com.github.sanex3339.ghstack.ops.StackFileStore
 import com.github.sanex3339.ghstack.state.RepoState
+import com.github.sanex3339.ghstack.ui.GhStackCommands
 import com.intellij.dvcs.repo.VcsRepositoryManager
 import com.intellij.dvcs.repo.VcsRepositoryMappingListener
 import com.intellij.ide.ActivityTracker
@@ -39,6 +40,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
@@ -59,6 +61,8 @@ class StackStateService(private val project: Project, private val scope: Corouti
     private val prDetails = ConcurrentHashMap<Path, Map<Int, PrDetails>>()
     private val fileStamps = ConcurrentHashMap<Path, List<Long>>()
     private val liveRequests = ConcurrentHashMap<Path, Channel<Unit>>()
+    private val autoContinued = ConcurrentHashMap<Path, Long>()
+    private val lastLive = ConcurrentHashMap<Path, Long>()
     private val runner = IdeEnvironment.runner()
 
     @Volatile
@@ -81,6 +85,7 @@ class StackStateService(private val project: Project, private val scope: Corouti
             while (isActive) {
                 delay(POLL_INTERVAL_MS)
                 roots().forEach { root -> runCatching { pollFiles(root) }.onFailure { LOG.debug(it) } }
+                refreshPrStatusesIfStale()
             }
         }
     }
@@ -116,6 +121,9 @@ class StackStateService(private val project: Project, private val scope: Corouti
     }
 
     fun requestAllLive() = roots().forEach(::requestLive)
+
+    /** Refreshes on the calling (background) thread and returns when done; used by the MCP tools. */
+    fun refreshNow(root: Path) = refreshLive(root)
 
     fun recheckCli() {
         states.replaceAll { _, state -> state.copy(cliStatus = null) }
@@ -164,7 +172,9 @@ class StackStateService(private val project: Project, private val scope: Corouti
         val base = previous.copy(cliStatus = status, gitDir = gitDir)
         val composed = compose(base, files, overlay, currentBranch)
         states[root] = composed
+        lastLive[root] = System.currentTimeMillis()
         publish(root)
+        maybeAutoContinue(composed)
         // Draft / review / checks for the current stack: one GraphQL request, also slow-ish, so it comes last.
         if (status is CliStatus.Ready) {
             fetchPrDetails(status, root, composed)?.let { details ->
@@ -175,16 +185,26 @@ class StackStateService(private val project: Project, private val scope: Corouti
         }
     }
 
+    /** CI and reviews change on GitHub without any local event, so re-ask about the active stack every minute. */
+    private fun refreshPrStatusesIfStale() {
+        if (!ApplicationManager.getApplication().isActive) return
+        val root = activeRoot() ?: return
+        if (state(root).currentStack == null) return
+        if (System.currentTimeMillis() - (lastLive[root] ?: 0L) >= PR_REFRESH_INTERVAL_MS) requestLive(root)
+    }
+
     private fun pollFiles(root: Path) {
         val previous = states[root] ?: return
         val gitDir = previous.gitDir ?: return
         val stamps = stamps(gitDir)
         if (fileStamps.put(root, stamps) == stamps) return
-        states[root] = compose(previous, readFiles(gitDir), overlays[root], readCurrentBranch(gitDir))
+        val composed = compose(previous, readFiles(gitDir), overlays[root], readCurrentBranch(gitDir))
+        states[root] = composed
         publish(root)
+        maybeAutoContinue(composed)
     }
 
-    private data class FileSnapshot(val stackFile: StackFileResult, val operation: OperationState)
+    private data class FileSnapshot(val stackFile: StackFileResult, val operation: OperationState, val gitRebaseInProgress: Boolean)
 
     private fun readFiles(gitDir: Path) = FileSnapshot(
         stackFile = StackFileParser.parse(StackFileStore.read(gitDir)),
@@ -193,6 +213,7 @@ class StackStateService(private val project: Project, private val scope: Corouti
             StackFileStore.read(gitDir, StackFileStore.MODIFY_STATE_FILE),
             StackFileStore.read(gitDir, StackFileStore.REMOVAL_STATE_FILE),
         ),
+        gitRebaseInProgress = Files.isDirectory(gitDir.resolve("rebase-merge")) || Files.isDirectory(gitDir.resolve("rebase-apply")),
     )
 
     private fun compose(base: RepoState, files: FileSnapshot, overlay: ViewSnapshot?, currentBranch: String?): RepoState {
@@ -204,7 +225,43 @@ class StackStateService(private val project: Project, private val scope: Corouti
             repository = parsed?.file?.repository,
             fallbackMode = parsed == null,
             operation = files.operation,
+            gitRebaseInProgress = files.gitRebaseInProgress,
+            conflictedFiles = if (files.operation.isStopped()) conflictedFiles(base) else emptyList(),
         )
+    }
+
+    private fun OperationState.isStopped() = this is OperationState.RebaseConflict || this is OperationState.RemovalStopped
+
+    private fun conflictedFiles(state: RepoState): List<String> {
+        val git = (state.cliStatus as? CliStatus.Ready)?.gitPath ?: return emptyList()
+        val result = runner.run(CommandRequest(state.root, listOf(git, "diff", "--name-only", "--diff-filter=U"), GIT_DIR_TIMEOUT))
+        return if (result.ok) result.stdout.lines().map { it.trim() }.filter { it.isNotEmpty() } else emptyList()
+    }
+
+    /**
+     * If the IDE's own "Continue Rebase" finished the conflicted branch (git is no longer mid-rebase and the
+     * branch now contains its parent), carry on with the branches above it, once per stop.
+     */
+    private fun maybeAutoContinue(state: RepoState) {
+        val operation = state.operation
+        if (!operation.isStopped() || state.gitRebaseInProgress || state.conflictedFiles.isNotEmpty()) return
+        if (GhStackOperations.getInstance(project).isBusy(state.root)) return
+        val gitDir = state.gitDir ?: return
+        val stateFile = gitDir.resolve(if (operation is OperationState.RebaseConflict) StackFileStore.REBASE_STATE_FILE else StackFileStore.REMOVAL_STATE_FILE)
+        val stamp = stateFile.toFile().lastModified()
+        if (autoContinued[state.root] == stamp) return
+        val branch = when (operation) {
+            is OperationState.RebaseConflict -> operation.branch
+            is OperationState.RemovalStopped -> operation.branch
+            else -> null
+        } ?: return
+        val stack = state.stacks.firstOrNull { it.branch(branch) != null } ?: return
+        val git = (state.cliStatus as? CliStatus.Ready)?.gitPath ?: return
+        val parent = stack.activeParentOf(branch)
+        val finished = runner.run(CommandRequest(state.root, listOf(git, "merge-base", "--is-ancestor", parent, branch), GIT_DIR_TIMEOUT)).ok
+        if (!finished) return
+        autoContinued[state.root] = stamp
+        ApplicationManager.getApplication().invokeLater({ GhStackCommands.rebaseContinue(project) }, project.disposed)
     }
 
     private fun shouldRunView(stackFile: StackFileResult, currentBranch: String?): Boolean {
@@ -239,7 +296,7 @@ class StackStateService(private val project: Project, private val scope: Corouti
     private fun readCurrentBranch(gitDir: Path): String? = GitHead.currentBranch(StackFileStore.read(gitDir, "HEAD"))
 
     private fun stamps(gitDir: Path): List<Long> =
-        listOf("HEAD", StackFileStore.STACK_FILE, StackFileStore.REBASE_STATE_FILE, StackFileStore.MODIFY_STATE_FILE, StackFileStore.REMOVAL_STATE_FILE).flatMap { name ->
+        listOf("HEAD", "index", StackFileStore.STACK_FILE, StackFileStore.REBASE_STATE_FILE, StackFileStore.MODIFY_STATE_FILE, StackFileStore.REMOVAL_STATE_FILE).flatMap { name ->
             val file = gitDir.resolve(name).toFile()
             if (file.exists()) listOf(file.length(), file.lastModified()) else listOf(-1L, -1L)
         }
@@ -259,6 +316,7 @@ class StackStateService(private val project: Project, private val scope: Corouti
         private val LOG = logger<StackStateService>()
         private const val INITIAL_DELAY_MS = 500L
         private const val POLL_INTERVAL_MS = 2_000L
+        private const val PR_REFRESH_INTERVAL_MS = 60_000L
         private const val DEBOUNCE_MS = 300L
         private val VIEW_TIMEOUT = 60.seconds
         private val GIT_DIR_TIMEOUT = 10.seconds

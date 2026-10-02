@@ -9,6 +9,7 @@ import com.github.sanex3339.ghstack.model.PrState
 import com.github.sanex3339.ghstack.model.PrUi
 import com.github.sanex3339.ghstack.model.ReviewState
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class BranchBadgesTest {
@@ -19,25 +20,43 @@ class BranchBadgesTest {
 
     @Test
     fun `open pull requests show their readiness`() {
-        assertEquals(listOf(Badge("open", Tone.NEUTRAL)), BranchBadges.of(open(null)))
-        assertEquals(listOf(Badge("ready", Tone.POSITIVE)), BranchBadges.of(open(clean)))
-        assertEquals(listOf(Badge("approved", Tone.POSITIVE)), BranchBadges.of(open(clean.copy(review = ReviewState.APPROVED))))
-        assertEquals(listOf(Badge("draft", Tone.NEUTRAL)), BranchBadges.of(open(clean.copy(isDraft = true), MergeBlocker.DRAFT)))
-        assertEquals(listOf(Badge("checks failing", Tone.NEGATIVE)), BranchBadges.of(open(clean, MergeBlocker.CHECKS_FAILING)))
-        assertEquals(listOf(Badge("review required", Tone.WARNING)), BranchBadges.of(open(clean, MergeBlocker.REVIEW_REQUIRED)))
+        fun texts(branch: BranchUi) = BranchBadges.of(branch).map { it.text to it.tone }
+        assertEquals(listOf("open" to Tone.NEUTRAL), texts(open(null)))
+        assertEquals(listOf("ready" to Tone.POSITIVE), texts(open(clean)))
+        assertEquals(listOf("approved" to Tone.POSITIVE), texts(open(clean.copy(review = ReviewState.APPROVED))))
+        assertEquals(listOf("draft" to Tone.NEUTRAL), texts(open(clean.copy(isDraft = true), MergeBlocker.DRAFT)))
+        assertEquals(listOf("checks failing" to Tone.NEGATIVE), texts(open(clean, MergeBlocker.CHECKS_FAILING)))
+        assertEquals(listOf("review required" to Tone.WARNING), texts(open(clean, MergeBlocker.REVIEW_REQUIRED)))
     }
 
     @Test
-    fun `blocked layers say what blocks them`() {
-        assertEquals(
-            listOf(Badge("approved", Tone.POSITIVE), Badge("blocked by #5", Tone.WARNING)),
-            BranchBadges.of(open(clean.copy(review = ReviewState.APPROVED), blockedBy = "#5")),
-        )
+    fun `blocked layers say what blocks them, compactly in the tree, and link to the blocker`() {
+        val blocker = BranchUi("auth", false, BranchStatus.OPEN, PrUi(5, null, PrState.OPEN), blocker = MergeBlocker.DRAFT)
+        val blocked = open(clean.copy(review = ReviewState.APPROVED), blockedBy = "#5")
+        val stack = com.github.sanex3339.ghstack.model.StackUi(null, 1, "main", listOf(blocker, blocked), isCurrent = true)
+        val badges = BranchBadges.of(blocked, stack)
+        assertEquals(listOf("approved", "blocked by #5"), badges.map { it.text })
+        assertEquals("⛔ #5", badges[1].compact)
+        assertEquals(BadgeLink.Branch("auth"), badges[1].link)
+        assertTrue(BranchBadges.tooltip(blocked, stack).contains("Blocked by #5 (draft)"))
+    }
+
+    @Test
+    fun `failing checks link to the checks page and are named in the tooltip`() {
+        val failing = open(clean.copy(checks = ChecksState.FAILING, failingChecks = listOf("build", "test"), title = "Add <api>"), MergeBlocker.CHECKS_FAILING)
+            .copy(pr = PrUi(7, "https://github.com/o/r/pull/7", PrState.OPEN))
+        val stack = com.github.sanex3339.ghstack.model.StackUi(null, 1, "main", listOf(failing), isCurrent = true)
+        val badge = BranchBadges.of(failing, stack).single()
+        assertEquals("✗ checks", badge.compact)
+        assertEquals(BadgeLink.Url("https://github.com/o/r/pull/7/checks"), badge.link)
+        val tooltip = BranchBadges.tooltip(failing, stack)
+        assertTrue(tooltip.contains("<b>Add &lt;api&gt;</b>"), tooltip)
+        assertTrue(tooltip.contains("✗ failing: build, test"), tooltip)
     }
 
     @Test
     fun `other statuses keep their labels`() {
-        assertEquals(listOf(Badge("merged", Tone.NEUTRAL)), BranchBadges.of(BranchUi("m", false, BranchStatus.MERGED, null)))
-        assertEquals(listOf(Badge("needs rebase", Tone.WARNING)), BranchBadges.of(BranchUi("m", false, BranchStatus.NEEDS_REBASE, null)))
+        assertEquals(listOf("merged"), BranchBadges.of(BranchUi("m", false, BranchStatus.MERGED, null)).map { it.text })
+        assertEquals(listOf("needs rebase"), BranchBadges.of(BranchUi("m", false, BranchStatus.NEEDS_REBASE, null)).map { it.text })
     }
 }

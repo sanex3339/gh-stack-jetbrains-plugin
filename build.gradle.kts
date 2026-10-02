@@ -36,6 +36,7 @@ dependencies {
         }
         bundledPlugin("Git4Idea")
         bundledPlugin("org.jetbrains.plugins.terminal")
+        bundledPlugin("com.intellij.mcpServer")
         // Split platform modules Git4Idea's API exposes (GitRepository's supertypes, the diff viewer).
         bundledModule("intellij.platform.vcs.dvcs")
         bundledModule("intellij.platform.vcs.dvcs.impl")

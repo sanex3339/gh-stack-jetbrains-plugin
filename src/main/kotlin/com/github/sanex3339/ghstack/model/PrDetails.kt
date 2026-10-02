@@ -20,6 +20,9 @@ data class PrDetails(
     val review: ReviewState,
     val checks: ChecksState,
     val conflicting: Boolean,
+    val title: String = "",
+    val failingChecks: List<String> = emptyList(),
+    val pendingChecks: List<String> = emptyList(),
 )
 
 /** One GraphQL request for all of a stack's pull requests (`gh api graphql -f query=…`). */
@@ -28,8 +31,9 @@ object PrDetailsQuery {
         append("query { repository(owner: ").append(JsonPrimitive(repo.owner)).append(", name: ").append(JsonPrimitive(repo.name)).append(") {")
         numbers.distinct().forEach { number ->
             append(" pr").append(number).append(": pullRequest(number: ").append(number).append(") {")
-            append(" number isDraft reviewDecision mergeable")
-            append(" commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } }")
+            append(" number title isDraft reviewDecision mergeable")
+            append(" commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes {")
+            append(" __typename ... on CheckRun { name conclusion status } ... on StatusContext { context state } } } } } } } }")
         }
         append(" } }")
     }
@@ -46,8 +50,10 @@ object PrDetailsQuery {
 
     private fun JsonObject.toDetails(): PrDetails? {
         val number = (this["number"] as? JsonPrimitive)?.intOrNull ?: return null
-        val rollup = ((obj("commits")?.get("nodes") as? JsonArray)?.firstOrNull() as? JsonObject)
-            ?.obj("commit")?.obj("statusCheckRollup")?.string("state")
+        val statusRollup = ((obj("commits")?.get("nodes") as? JsonArray)?.firstOrNull() as? JsonObject)
+            ?.obj("commit")?.obj("statusCheckRollup")
+        val rollup = statusRollup?.string("state")
+        val contexts = (statusRollup?.obj("contexts")?.get("nodes") as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
         return PrDetails(
             number = number,
             isDraft = (this["isDraft"] as? JsonPrimitive)?.booleanOrNull == true,
@@ -64,8 +70,21 @@ object PrDetailsQuery {
                 else -> ChecksState.NONE
             },
             conflicting = string("mergeable") == "CONFLICTING",
+            title = string("title").orEmpty(),
+            failingChecks = contexts.filter { it.isFailingCheck() }.map { it.checkName() },
+            pendingChecks = contexts.filter { it.isPendingCheck() }.map { it.checkName() },
         )
     }
+
+    private fun JsonObject.checkName(): String = string("name") ?: string("context") ?: "check"
+
+    private fun JsonObject.isFailingCheck(): Boolean =
+        string("conclusion") in FAILING_CONCLUSIONS || string("state") in setOf("FAILURE", "ERROR")
+
+    private fun JsonObject.isPendingCheck(): Boolean =
+        (string("__typename") == "CheckRun" && string("status") != "COMPLETED") || string("state") in setOf("PENDING", "EXPECTED")
+
+    private val FAILING_CONCLUSIONS = setOf("FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE")
 
     private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
 
