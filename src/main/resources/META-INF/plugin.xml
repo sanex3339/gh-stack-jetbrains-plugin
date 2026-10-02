@@ -127,6 +127,8 @@
         </action>
         <action id="GhStack.InsertAbove" class="com.github.sanex3339.ghstack.actions.InsertAboveAction"
                 text="Insert Branch Above…" description="Insert a new branch above the selected (or current) branch and switch to it"/>
+        <action id="GhStack.RemoveFromStack" class="com.github.sanex3339.ghstack.actions.RemoveFromStackAction"
+                text="Remove from Stack…" description="Take the selected (or current) branch out of the stack: drop its commits or fold them into a neighbour"/>
         <action id="GhStack.Modify" class="com.github.sanex3339.ghstack.actions.ModifyAction"
                 text="Restructure in Terminal…" description="Drop, fold, reorder or rename branches (gh stack modify)"/>
         <action id="GhStack.ModifyContinue" class="com.github.sanex3339.ghstack.actions.ModifyContinueAction"
@@ -187,6 +189,7 @@
             <separator/>
             <reference ref="GhStack.AddBranch"/>
             <reference ref="GhStack.InsertBelow"/>
+            <reference ref="GhStack.RemoveFromStack"/>
             <reference ref="GhStack.Modify"/>
             <reference ref="GhStack.MoreGroup"/>
         </group>
@@ -195,6 +198,7 @@
             <separator/>
             <reference ref="GhStack.InsertBelow"/>
             <reference ref="GhStack.InsertAbove"/>
+            <reference ref="GhStack.RemoveFromStack"/>
             <reference ref="GhStack.LayerDiff"/>
             <reference ref="GhStack.RebaseUpstackFromHere"/>
             <separator/>
@@ -213,6 +217,7 @@
             <reference ref="GhStack.RebaseDownstack"/>
             <separator/>
             <reference ref="GhStack.InsertBelow"/>
+            <reference ref="GhStack.RemoveFromStack"/>
             <reference ref="GhStack.ShowToolWindow"/>
         </group>
         <group id="GhStack.MainMenu" text="GH Stack" popup="true">
@@ -240,6 +245,7 @@
             <reference ref="GhStack.AddBranch"/>
             <reference ref="GhStack.InsertBelow"/>
             <reference ref="GhStack.InsertAbove"/>
+            <reference ref="GhStack.RemoveFromStack"/>
             <reference ref="GhStack.Modify"/>
             <reference ref="GhStack.ModifyContinue"/>
             <reference ref="GhStack.ModifyAbort"/>

@@ -19,6 +19,10 @@ CLI; the plugin only reads its state files.
   or `⌘⌥K L` / `Ctrl+Alt+X L`. Lists the stack's branches plus other stacks; click to switch.
 - **Insert branch below/above**: creates the branch at the right parent, re-registers the stack and
   checks the branch out. Move changes into it (or ask your agent to), commit, then **Submit**.
+- **Remove from stack**: drop a branch and its commits (branches above are rebased without them), or
+  fold it into the branch below/above to keep its commits. Optionally closes its PR and deletes the
+  local branch; a stack on GitHub is recreated without it. Conflicts pause with Resolve/Continue/Abort,
+  and Abort puts every branch back exactly where it was.
 - **Submit**: offers a rebase if needed, asks for titles/bodies/draft state of new PRs, pushes, opens
   them, recreates the GitHub stack when its order changed (GitHub can only append), then
   `gh stack submit --auto`.

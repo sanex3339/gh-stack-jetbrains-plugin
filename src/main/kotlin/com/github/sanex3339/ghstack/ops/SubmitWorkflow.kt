@@ -62,7 +62,7 @@ class SubmitWorkflow(
             val localOpen = stack.activeBranches.mapNotNull { it.pr?.number ?: createdPrs[it.name] }
             val remote = RemoteStacks(cli, repository)
             val remoteStack = if (stack.number != null || localOpen.isNotEmpty()) remote.find(stack.number, localOpen) else null
-            when (SubmitPlanner.recreateDecision(remoteStack?.openPrNumbers, localOpen, modifyPendingSubmit = false)) {
+            when (SubmitPlanner.recreateDecision(remoteStack?.openPrNumbers, localOpen, modifyPendingSubmit = false, remoteStack?.closedPrNumbers.orEmpty())) {
                 RecreateDecision.NOT_NEEDED -> Unit
                 RecreateDecision.REMOTE_HAS_UNKNOWN_PRS -> throw WorkflowAbort(
                     "The stack on GitHub has pull requests your local stack doesn't track. Run Sync first, then Submit again.",

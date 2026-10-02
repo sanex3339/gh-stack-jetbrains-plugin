@@ -1,6 +1,9 @@
 package com.github.sanex3339.ghstack.model
 
+import kotlinx.serialization.Serializable
+
 /** GitHub repository a stack file belongs to, from its `repository` field (`host:owner/name`). */
+@Serializable
 data class RepoCoordinates(val host: String, val owner: String, val name: String) {
     val apiPath: String get() = "repos/$owner/$name"
 

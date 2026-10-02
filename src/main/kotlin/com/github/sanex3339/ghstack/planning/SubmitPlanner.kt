@@ -21,9 +21,15 @@ object SubmitPlanner {
      * GitHub's stacks API can only append, so any other change of the open-PR order needs the
      * stack unstacked and recreated. `gh stack submit` does that itself after `gh stack modify`.
      */
-    fun recreateDecision(remoteOpenPrs: List<Int>?, localOpenPrs: List<Int>, modifyPendingSubmit: Boolean): RecreateDecision {
+    fun recreateDecision(
+        remoteOpenPrs: List<Int>?,
+        localOpenPrs: List<Int>,
+        modifyPendingSubmit: Boolean,
+        remoteClosedPrs: List<Int> = emptyList(),
+    ): RecreateDecision {
         if (modifyPendingSubmit || remoteOpenPrs.isNullOrEmpty()) return RecreateDecision.NOT_NEEDED
         if (remoteOpenPrs.any { it !in localOpenPrs }) return RecreateDecision.REMOTE_HAS_UNKNOWN_PRS
+        if (remoteClosedPrs.isNotEmpty()) return RecreateDecision.RECREATE
         val isAppend = localOpenPrs.size >= remoteOpenPrs.size && localOpenPrs.subList(0, remoteOpenPrs.size) == remoteOpenPrs
         return if (isAppend) RecreateDecision.NOT_NEEDED else RecreateDecision.RECREATE
     }

@@ -36,6 +36,11 @@ class SubmitPlannerTest {
     }
 
     @Test
+    fun `a closed PR still sitting in the GitHub stack forces a recreate`() {
+        assertEquals(RecreateDecision.RECREATE, SubmitPlanner.recreateDecision(listOf(43, 45), listOf(43, 45), false, remoteClosedPrs = listOf(44)))
+    }
+
+    @Test
     fun `pending modify lets gh stack submit recreate on its own`() {
         assertEquals(RecreateDecision.NOT_NEEDED, SubmitPlanner.recreateDecision(listOf(43, 44), listOf(44, 43), true))
     }

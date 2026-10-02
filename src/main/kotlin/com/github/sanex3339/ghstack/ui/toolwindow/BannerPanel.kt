@@ -50,6 +50,13 @@ class BannerPanel(private val project: Project) : JPanel(BorderLayout()) {
                 panel.createActionLabel("Continue") { GhStackCommands.rebaseContinue(project) }
                 panel.createActionLabel("Abort") { GhStackCommands.rebaseAbort(project) }
             }
+            is Banner.RemovalConflict -> {
+                panel.text = "Removing ${banner.removed} stopped" + (banner.branch?.let { " while rebasing $it" } ?: "") +
+                    ". Resolve the conflicts, then continue, or abort to put everything back."
+                panel.createActionLabel("Resolve Conflicts…") { GhStackCommands.resolveConflicts(project) }
+                panel.createActionLabel("Continue") { GhStackCommands.removeContinue(project) }
+                panel.createActionLabel("Abort") { GhStackCommands.removeAbort(project) }
+            }
             is Banner.ModifyInterrupted -> {
                 panel.text = "gh stack modify was interrupted (${banner.phase})."
                 panel.createActionLabel("Continue in Terminal") { GhStackCommands.modifyContinue(project) }

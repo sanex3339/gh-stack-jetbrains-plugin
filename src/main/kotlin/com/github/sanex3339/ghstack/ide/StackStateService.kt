@@ -170,6 +170,7 @@ class StackStateService(private val project: Project, private val scope: Corouti
         operation = GitDirStateParser.operationState(
             StackFileStore.read(gitDir, StackFileStore.REBASE_STATE_FILE),
             StackFileStore.read(gitDir, StackFileStore.MODIFY_STATE_FILE),
+            StackFileStore.read(gitDir, StackFileStore.REMOVAL_STATE_FILE),
         ),
     )
 
@@ -204,7 +205,7 @@ class StackStateService(private val project: Project, private val scope: Corouti
     }
 
     private fun stamps(gitDir: Path): List<Long> =
-        listOf(StackFileStore.STACK_FILE, StackFileStore.REBASE_STATE_FILE, StackFileStore.MODIFY_STATE_FILE).flatMap { name ->
+        listOf(StackFileStore.STACK_FILE, StackFileStore.REBASE_STATE_FILE, StackFileStore.MODIFY_STATE_FILE, StackFileStore.REMOVAL_STATE_FILE).flatMap { name ->
             val file = gitDir.resolve(name).toFile()
             if (file.exists()) listOf(file.length(), file.lastModified()) else listOf(-1L, -1L)
         }

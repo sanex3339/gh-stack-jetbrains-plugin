@@ -5,7 +5,13 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /** A stack as returned by GitHub's Stacks REST API (`/repos/{owner}/{repo}/stacks…`). */
-data class RemoteStackInfo(val number: Int, val prNumbers: List<Int>, val openPrNumbers: List<Int>)
+data class RemoteStackInfo(
+    val number: Int,
+    val prNumbers: List<Int>,
+    val openPrNumbers: List<Int>,
+    /** Closed without merging but still part of the stack (GitHub keeps PR bases chained through them). */
+    val closedPrNumbers: List<Int> = emptyList(),
+)
 
 object RemoteStackJson {
     private val json = Json { ignoreUnknownKeys = true }
@@ -26,5 +32,6 @@ object RemoteStackJson {
         number = number,
         prNumbers = pullRequests.map { it.number },
         openPrNumbers = pullRequests.filter { it.state == "open" && it.mergedAt.isNullOrEmpty() }.map { it.number },
+        closedPrNumbers = pullRequests.filter { it.state == "closed" && it.mergedAt.isNullOrEmpty() }.map { it.number },
     )
 }

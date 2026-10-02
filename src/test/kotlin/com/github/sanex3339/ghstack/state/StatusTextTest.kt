@@ -25,6 +25,7 @@ class StatusTextTest {
         val state = base.copy(stacks = listOf(stack("main", "auth" to OPEN, "api" to NEEDS_REBASE, current = "api")), currentBranch = "api")
         assertEquals("⧉ api 2/2 ⚠", StatusText.of(state))
         assertEquals("⧉ rebase stopped on api ⚠", StatusText.of(state.copy(currentBranch = null, operation = OperationState.RebaseConflict("api"))))
+        assertEquals("⧉ removing api: rebase stopped ⚠", StatusText.of(state.copy(currentBranch = null, operation = OperationState.RemovalStopped("api", "ui"))))
     }
 
     @Test

@@ -10,6 +10,7 @@ sealed interface Banner {
     data object ExtensionMissing : Banner
     data object NotAuthenticated : Banner
     data class RebaseConflict(val branch: String?) : Banner
+    data class RemovalConflict(val removed: String, val branch: String?) : Banner
     data class ModifyInterrupted(val phase: String) : Banner
     data object ModifyPendingSubmit : Banner
     data object StacksUnavailable : Banner
@@ -29,6 +30,7 @@ object Banners {
         }
         when (val operation = state.operation) {
             is OperationState.RebaseConflict -> return Banner.RebaseConflict(operation.branch)
+            is OperationState.RemovalStopped -> return Banner.RemovalConflict(operation.removed, operation.branch)
             is OperationState.ModifyInterrupted -> return Banner.ModifyInterrupted(operation.phase)
             OperationState.ModifyPendingSubmit -> return Banner.ModifyPendingSubmit
             OperationState.None -> Unit

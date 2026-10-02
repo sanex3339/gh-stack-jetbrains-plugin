@@ -9,7 +9,12 @@ import com.github.sanex3339.ghstack.ide.IdeEnvironment
 import com.github.sanex3339.ghstack.ide.StackStateService
 import com.github.sanex3339.ghstack.model.BranchStatus
 import com.github.sanex3339.ghstack.model.StackUi
+import com.github.sanex3339.ghstack.model.OperationState
+import com.github.sanex3339.ghstack.model.RemoveMode
 import com.github.sanex3339.ghstack.ops.InsertBranchWorkflow
+import com.github.sanex3339.ghstack.ops.RemovalOutcome
+import com.github.sanex3339.ghstack.ops.RemoveBranchWorkflow
+import com.github.sanex3339.ghstack.ops.RepoSnapshot
 import com.github.sanex3339.ghstack.ops.SubmitOutcome
 import com.github.sanex3339.ghstack.ops.SubmitWorkflow
 import com.github.sanex3339.ghstack.ops.SyncOutcome
@@ -19,6 +24,8 @@ import com.github.sanex3339.ghstack.planning.BranchNames
 import com.github.sanex3339.ghstack.planning.InsertCheck
 import com.github.sanex3339.ghstack.planning.InsertDirection
 import com.github.sanex3339.ghstack.planning.InsertPlanner
+import com.github.sanex3339.ghstack.planning.RemovalCheck
+import com.github.sanex3339.ghstack.planning.RemovePlanner
 import com.github.sanex3339.ghstack.settings.GhStackConfigurable
 import com.github.sanex3339.ghstack.settings.GhStackSettings
 import com.github.sanex3339.ghstack.state.RepoState
@@ -27,6 +34,7 @@ import com.github.sanex3339.ghstack.terminal.TerminalCommands
 import com.github.sanex3339.ghstack.ui.dialogs.AddBranchDialog
 import com.github.sanex3339.ghstack.ui.dialogs.MergeDialog
 import com.github.sanex3339.ghstack.ui.dialogs.NewStackDialog
+import com.github.sanex3339.ghstack.ui.dialogs.RemoveBranchDialog
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.ide.CopyPasteManager
@@ -154,7 +162,11 @@ object GhStackCommands {
         stack(*mode.args)
     }
 
-    fun rebaseContinue(project: Project) = ops(project).run("Continue rebase") {
+    fun rebaseContinue(project: Project) {
+        if (state(project)?.operation is OperationState.RemovalStopped) removeContinue(project) else continueStackRebase(project)
+    }
+
+    private fun continueStackRebase(project: Project) = ops(project).run("Continue rebase") {
         val unmerged = ConflictResolver.unmergedFiles(cli)
         if (unmerged.isNotEmpty()) {
             invokeLater { ConflictResolver.showMergeDialog(project, unmerged) }
@@ -165,6 +177,7 @@ object GhStackCommands {
     }
 
     fun rebaseAbort(project: Project) {
+        if (state(project)?.operation is OperationState.RemovalStopped) return removeAbort(project)
         val confirmed = MessageDialogBuilder.yesNo("Abort Rebase", "Abort the stack rebase and restore every branch to where it was?")
             .yesText("Abort Rebase").noText("Keep Going").ask(project)
         if (confirmed) ops(project).run("Abort rebase") { stack("rebase", "--abort") }
@@ -230,6 +243,77 @@ object GhStackCommands {
         return when (direction) {
             InsertDirection.BELOW -> "between ${stack.activeParentOf(target)} and $target"
             InsertDirection.ABOVE -> active.getOrNull(index + 1)?.let { "between $target and $it" } ?: "on top of $target"
+        }
+    }
+
+    fun removeBranch(project: Project, targetBranch: String? = null) {
+        val repoState = state(project) ?: return
+        val stack = targetBranch?.let { name -> repoState.stacks.firstOrNull { it.branch(name) != null } } ?: repoState.currentStack ?: return
+        val name = targetBranch ?: repoState.currentBranch ?: return
+        val modes = RemovePlanner.availableModes(stack, name)
+        if (modes.isEmpty()) {
+            val reason = (RemovePlanner.plan(stack, name, RemoveMode.DROP, repoState.operation) as? RemovalCheck.Invalid)?.message
+            Messages.showErrorDialog(project, reason ?: "\"$name\" can't be removed from this stack.", "Can't Remove Branch")
+            return
+        }
+        val onGitHub = repoState.repository != null && (stack.number != null || stack.activeBranches.any { it.pr != null })
+        val dialog = RemoveBranchDialog(project, stack, name, modes, onGitHub)
+        if (!dialog.showAndGet()) return
+        val mode = dialog.mode()
+        val options = dialog.options()
+        when (val check = RemovePlanner.plan(stack, name, mode, repoState.operation)) {
+            is RemovalCheck.Invalid -> Messages.showErrorDialog(project, check.message, "Can't Remove Branch")
+            RemovalCheck.NeedsRebase -> {
+                val rebaseNow = MessageDialogBuilder.yesNo("Stack Needs a Rebase", "Some branches must be rebased before a branch can be removed. Rebase the stack now? Remove again once it finishes.")
+                    .yesText("Rebase").ask(project)
+                if (rebaseNow) rebase(project, RebaseMode.STACK)
+            }
+            is RemovalCheck.Ready -> ops(project).run("Remove $name") {
+                val snapshot = RepoSnapshot(stack, state.currentBranch.orEmpty(), state.repository, state.operation)
+                reportRemoval(project, name, RemoveBranchWorkflow(cli, gitDir).start(check.plan, options, snapshot))
+            }
+        }
+    }
+
+    fun removeContinue(project: Project) = ops(project).run("Continue removing branch") {
+        val unmerged = ConflictResolver.unmergedFiles(cli)
+        if (unmerged.isNotEmpty()) {
+            invokeLater { ConflictResolver.showMergeDialog(project, unmerged) }
+            GhStackNotifier.info(project, "Resolve the remaining conflicts first", "Then click Continue again.")
+        } else {
+            val removed = (state.operation as? OperationState.RemovalStopped)?.removed ?: "branch"
+            reportRemoval(project, removed, RemoveBranchWorkflow(cli, gitDir).resume())
+        }
+    }
+
+    fun removeAbort(project: Project) {
+        val confirmed = MessageDialogBuilder.yesNo("Abort Removing Branch", "Stop removing the branch and put every branch back where it was?")
+            .yesText("Abort").noText("Keep Going").ask(project)
+        if (confirmed) {
+            ops(project).run("Abort removing branch") {
+                RemoveBranchWorkflow(cli, gitDir).abort()
+                GhStackNotifier.info(project, "Branch removal undone")
+            }
+        }
+    }
+
+    private fun reportRemoval(project: Project, removed: String, outcome: RemovalOutcome) {
+        when (outcome) {
+            is RemovalOutcome.Done -> {
+                val where = if (outcome.githubUpdated) "locally and on GitHub" else "locally"
+                val details = outcome.warnings.joinToString("\n")
+                if (outcome.warnings.isEmpty()) {
+                    GhStackNotifier.info(project, "Removed $removed from the stack", "The stack was updated $where.")
+                } else {
+                    GhStackNotifier.warn(project, "Removed $removed from the stack, with problems", details)
+                }
+            }
+            is RemovalOutcome.StoppedOnConflict -> GhStackNotifier.warn(
+                project,
+                "Removing $removed stopped on a conflict in ${outcome.branch}",
+                "Resolve it, then Continue, or Abort to put everything back.",
+                GhStackNotifier.action("Resolve conflicts…") { resolveConflicts(project) },
+            )
         }
     }
 

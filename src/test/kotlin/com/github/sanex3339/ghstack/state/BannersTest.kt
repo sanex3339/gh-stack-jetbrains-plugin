@@ -38,6 +38,7 @@ class BannersTest {
         assertEquals(Banner.RebaseConflict("api"), Banners.of(base.copy(operation = OperationState.RebaseConflict("api"))))
         assertEquals(Banner.ModifyInterrupted("conflict"), Banners.of(base.copy(operation = OperationState.ModifyInterrupted("conflict"))))
         assertEquals(Banner.ModifyPendingSubmit, Banners.of(base.copy(operation = OperationState.ModifyPendingSubmit)))
+        assertEquals(Banner.RemovalConflict("api", "ui"), Banners.of(base.copy(operation = OperationState.RemovalStopped("api", "ui"))))
     }
 
     @Test

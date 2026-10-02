@@ -172,7 +172,8 @@ class RebaseUpstackFromHereAction : GhStackAction() {
 }
 
 abstract class RebaseInProgressAction(icon: Icon? = null) : GhStackAction(icon) {
-    override fun isEnabled(state: RepoState, e: AnActionEvent) = state.operation is OperationState.RebaseConflict
+    override fun isEnabled(state: RepoState, e: AnActionEvent) =
+        state.operation is OperationState.RebaseConflict || state.operation is OperationState.RemovalStopped
 }
 
 class RebaseContinueAction : RebaseInProgressAction(AllIcons.Actions.Resume) {
@@ -216,6 +217,18 @@ abstract class InsertAction(private val direction: InsertDirection, icon: Icon? 
 class InsertBelowAction : InsertAction(InsertDirection.BELOW, AllIcons.Vcs.Branch)
 
 class InsertAboveAction : InsertAction(InsertDirection.ABOVE)
+
+class RemoveFromStackAction : GhStackAction(AllIcons.General.Remove) {
+    override fun isEnabled(state: RepoState, e: AnActionEvent): Boolean {
+        if (state.operation != OperationState.None) return false
+        val (_, stack, branch) = targetBranch(e, state) ?: return false
+        return branch.status != BranchStatus.MERGED && stack.activeBranches.size > 1
+    }
+
+    override fun perform(project: Project, e: AnActionEvent) {
+        GhStackCommands.removeBranch(project, e.getData(GhStackDataKeys.SELECTED_BRANCH)?.branch?.name)
+    }
+}
 
 class ModifyAction : GhStackAction(AllIcons.Actions.Edit) {
     override fun isVisible(project: Project, state: RepoState, e: AnActionEvent) = GhStackTerminal.getInstance(project) != null

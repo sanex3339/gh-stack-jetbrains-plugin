@@ -8,6 +8,7 @@ object StatusText {
         if (state == null) return null
         val operation = state.operation
         if (operation is OperationState.RebaseConflict) return "⧉ rebase stopped" + (operation.branch?.let { " on $it" } ?: "") + " ⚠"
+        if (operation is OperationState.RemovalStopped) return "⧉ removing ${operation.removed}: rebase stopped ⚠"
         val stack = state.currentStack ?: return null
         val branch = state.currentBranch ?: return null
         val (position, total) = stack.positionOf(branch) ?: return null
