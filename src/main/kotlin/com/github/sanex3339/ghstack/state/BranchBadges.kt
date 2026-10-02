@@ -3,7 +3,6 @@ package com.github.sanex3339.ghstack.state
 import com.github.sanex3339.ghstack.model.BranchStatus
 import com.github.sanex3339.ghstack.model.BranchUi
 import com.github.sanex3339.ghstack.model.ChecksState
-import com.github.sanex3339.ghstack.model.MergeBlocker
 import com.github.sanex3339.ghstack.model.ReviewState
 import com.github.sanex3339.ghstack.model.StackUi
 
@@ -21,36 +20,46 @@ data class Badge(val text: String, val tone: Tone, val compact: String = text, v
 /** The short status labels shown after a branch in the tree and the switcher. */
 object BranchBadges {
     fun of(branch: BranchUi, stack: StackUi? = null): List<Badge> = buildList {
-        add(
-            when (branch.status) {
-                BranchStatus.MERGED -> Badge("merged", Tone.NEUTRAL)
-                BranchStatus.QUEUED -> Badge("queued", Tone.WARNING)
-                BranchStatus.NOT_SUBMITTED -> Badge("not submitted", Tone.NEUTRAL)
-                BranchStatus.NEEDS_REBASE -> Badge("needs rebase", Tone.WARNING)
-                BranchStatus.OPEN -> openBadge(branch)
-            },
-        )
+        addAll(statusBadges(branch))
         branch.blockedBy?.let { blocker ->
             val target = stack?.branches?.firstOrNull { b -> b.pr?.let { "#${it.number}" } == blocker || b.name == blocker }
             add(Badge("blocked by $blocker", Tone.WARNING, compact = "⛔ $blocker", link = target?.let { BadgeLink.Branch(it.name) }))
         }
     }
 
-    private fun openBadge(branch: BranchUi): Badge {
+    private fun statusBadges(branch: BranchUi): List<Badge> = when (branch.status) {
+        BranchStatus.MERGED -> listOf(Badge("merged", Tone.NEUTRAL))
+        BranchStatus.QUEUED -> listOf(Badge("queued", Tone.WARNING))
+        BranchStatus.NOT_SUBMITTED -> listOf(Badge("not submitted", Tone.NEUTRAL))
+        BranchStatus.NEEDS_REBASE -> listOf(Badge("needs rebase", Tone.WARNING))
+        BranchStatus.OPEN -> openBadges(branch)
+    }
+
+    /** Review and checks get a label each, so an approved pull request still says so while its checks run. */
+    private fun openBadges(branch: BranchUi): List<Badge> {
         val url = branch.pr?.url
-        val details = branch.details ?: return Badge("open", Tone.NEUTRAL, link = url?.let(BadgeLink::Url))
-        val checksUrl = url?.let { BadgeLink.Url("$it/checks") }
         val prUrl = url?.let(BadgeLink::Url)
-        return when (branch.blocker) {
-            MergeBlocker.DRAFT -> Badge("draft", Tone.NEUTRAL, link = prUrl)
-            MergeBlocker.CONFLICTS -> Badge("conflicts", Tone.NEGATIVE, link = prUrl)
-            MergeBlocker.CHECKS_FAILING -> Badge("checks failing", Tone.NEGATIVE, compact = "✗ checks", link = checksUrl)
-            MergeBlocker.CHANGES_REQUESTED -> Badge("changes requested", Tone.NEGATIVE, compact = "changes req.", link = prUrl)
-            MergeBlocker.REVIEW_REQUIRED -> Badge("review required", Tone.WARNING, compact = "needs review", link = prUrl)
-            MergeBlocker.CHECKS_PENDING -> Badge("checks running", Tone.WARNING, compact = "● checks", link = checksUrl)
-            MergeBlocker.NOT_SUBMITTED, MergeBlocker.NEEDS_REBASE -> Badge(branch.blocker.label, Tone.WARNING)
-            null -> Badge(if (details.review == ReviewState.APPROVED) "approved" else "ready", Tone.POSITIVE, link = prUrl)
+        val details = branch.details ?: return listOf(Badge("open", Tone.NEUTRAL, link = prUrl))
+        val checksUrl = url?.let { BadgeLink.Url("$it/checks") }
+        val badges = buildList {
+            if (details.isDraft) add(Badge("draft", Tone.NEUTRAL, link = prUrl))
+            if (details.conflicting) add(Badge("conflicts", Tone.NEGATIVE, link = prUrl))
+            // GitHub doesn't ask for reviews on drafts, so "needs review" there is noise.
+            if (!details.isDraft) {
+                when (details.review) {
+                    ReviewState.APPROVED -> add(Badge("approved", Tone.POSITIVE, compact = "✓ approved", link = prUrl))
+                    ReviewState.CHANGES_REQUESTED -> add(Badge("changes requested", Tone.NEGATIVE, compact = "changes req.", link = prUrl))
+                    ReviewState.REVIEW_REQUIRED -> add(Badge("review required", Tone.WARNING, compact = "needs review", link = prUrl))
+                    ReviewState.NONE -> {}
+                }
+            }
+            when (details.checks) {
+                ChecksState.FAILING -> add(Badge("checks failing", Tone.NEGATIVE, compact = "✗ checks", link = checksUrl))
+                ChecksState.PENDING -> add(Badge("checks running", Tone.WARNING, compact = "● checks", link = checksUrl))
+                ChecksState.PASSING, ChecksState.NONE -> {}
+            }
         }
+        return badges.ifEmpty { listOf(Badge("ready", Tone.POSITIVE, link = prUrl)) }
     }
 
     /** HTML tooltip with everything the badges abbreviate. */
@@ -59,7 +68,7 @@ object BranchBadges {
         val lines = mutableListOf<String>()
         lines += "<b>${escape(details?.title?.takeIf { it.isNotBlank() } ?: branch.name)}</b>"
         lines += escape(branch.name) + (branch.pr?.let { " · #${it.number}" } ?: "")
-        lines += "Status: " + of(branch, stack).first().text
+        lines += "Status: " + statusBadges(branch).joinToString(", ") { it.text }
         if (details != null) {
             lines += "Review: " + when (details.review) {
                 ReviewState.APPROVED -> "approved"

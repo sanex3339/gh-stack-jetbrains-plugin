@@ -25,8 +25,26 @@ class BranchBadgesTest {
         assertEquals(listOf("ready" to Tone.POSITIVE), texts(open(clean)))
         assertEquals(listOf("approved" to Tone.POSITIVE), texts(open(clean.copy(review = ReviewState.APPROVED))))
         assertEquals(listOf("draft" to Tone.NEUTRAL), texts(open(clean.copy(isDraft = true), MergeBlocker.DRAFT)))
-        assertEquals(listOf("checks failing" to Tone.NEGATIVE), texts(open(clean, MergeBlocker.CHECKS_FAILING)))
-        assertEquals(listOf("review required" to Tone.WARNING), texts(open(clean, MergeBlocker.REVIEW_REQUIRED)))
+        assertEquals(listOf("checks failing" to Tone.NEGATIVE), texts(open(clean.copy(checks = ChecksState.FAILING), MergeBlocker.CHECKS_FAILING)))
+        assertEquals(listOf("review required" to Tone.WARNING), texts(open(clean.copy(review = ReviewState.REVIEW_REQUIRED), MergeBlocker.REVIEW_REQUIRED)))
+    }
+
+    @Test
+    fun `review and checks are shown side by side`() {
+        val approvedRunning = open(clean.copy(review = ReviewState.APPROVED, checks = ChecksState.PENDING), MergeBlocker.CHECKS_PENDING)
+        val badges = BranchBadges.of(approvedRunning)
+        assertEquals(listOf("approved", "checks running"), badges.map { it.text })
+        assertEquals(listOf("✓ approved", "● checks"), badges.map { it.compact })
+        assertEquals(listOf(Tone.POSITIVE, Tone.WARNING), badges.map { it.tone })
+
+        val needsWork = open(clean.copy(review = ReviewState.CHANGES_REQUESTED, checks = ChecksState.FAILING, conflicting = true), MergeBlocker.CONFLICTS)
+        assertEquals(listOf("conflicts", "changes requested", "checks failing"), BranchBadges.of(needsWork).map { it.text })
+
+        val draft = open(clean.copy(isDraft = true, review = ReviewState.REVIEW_REQUIRED, checks = ChecksState.PENDING), MergeBlocker.DRAFT)
+        assertEquals(listOf("draft", "checks running"), BranchBadges.of(draft).map { it.text }, "a draft can't be reviewed yet")
+
+        val stack = com.github.sanex3339.ghstack.model.StackUi(null, 1, "main", listOf(approvedRunning), isCurrent = true)
+        assertTrue(BranchBadges.tooltip(approvedRunning, stack).contains("Status: approved, checks running"))
     }
 
     @Test
