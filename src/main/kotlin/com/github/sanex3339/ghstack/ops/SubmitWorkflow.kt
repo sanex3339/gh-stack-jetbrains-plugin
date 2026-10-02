@@ -48,7 +48,7 @@ class SubmitWorkflow(
             }
             val request = prompts.editPrDrafts(drafts) ?: return SubmitOutcome.CANCELLED
             markReady = request.markReady
-            cli.stack("push").orAbort("Pushing the stack")
+            StackPusher(cli).pushOrAbort()
             for (draft in request.drafts) {
                 val args = mutableListOf("pr", "create", "--head", draft.branch, "--base", draft.base, "--title", draft.title, "--body", draft.body)
                 if (draft.draft) args += "--draft"

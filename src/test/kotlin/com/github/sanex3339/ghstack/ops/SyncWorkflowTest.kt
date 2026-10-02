@@ -87,6 +87,20 @@ class SyncWorkflowTest {
     }
 
     @Test
+    fun `a push swallowed by a ruleset is redone in batches`() {
+        cli.on("stack sync", stderr = "⚠ Push failed: failed to run git: remote: - Pushes can not update more than 5 branches or tags.\n✓ Stack synced")
+        cli.on("stack view --json", stdout = """{"trunk":"main","currentBranch":"api","branches":[{"name":"auth"},{"name":"api"}]}""")
+        assertEquals(SyncOutcome.SYNCED_PUSHED_IN_BATCHES, run())
+        assertEquals(1, cli.calls.count { it.startsWith("git push origin") }, cli.calls.toString())
+    }
+
+    @Test
+    fun `other swallowed push failures are not reported as synced`() {
+        cli.on("stack sync", stderr = "⚠ Push failed — branches may need force push after rebase\n✓ Branches synced")
+        assertThrows<WorkflowAbort> { run() }
+    }
+
+    @Test
     fun `conflicts and terminal choice are reported`() {
         cli.on("stack sync", exitCode = 3, stderr = "✗ conflict")
         assertEquals(SyncOutcome.CONFLICT, run())

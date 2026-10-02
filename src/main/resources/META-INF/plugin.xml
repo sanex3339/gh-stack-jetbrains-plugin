@@ -31,6 +31,10 @@
     <ul>
       <li>A spinner shows while switching branches, syncing, rebasing and other operations run.</li>
       <li>The current branch updates right after switching, without waiting for pull request status from GitHub.</li>
+      <li>Push, Sync and Submit work in repositories whose rules limit how many branches one push may update
+          (e.g. "Pushes can not update more than 5 branches"): branches are pushed in batches.</li>
+      <li>Sync no longer reports success when its push failed.</li>
+      <li>Push and Submit are now also in the stack switcher dropdown.</li>
       <li>Removed deprecated API usages.</li>
     </ul>
     <p><b>0.1.0</b>: first release</p>

@@ -5,7 +5,16 @@ import com.github.sanex3339.ghstack.cli.StackCli
 import com.github.sanex3339.ghstack.planning.SyncOutput
 import java.nio.file.Path
 
-enum class SyncOutcome { SYNCED, CONFLICT, STACKS_UNAVAILABLE, OPEN_TERMINAL, CANCELLED }
+enum class SyncOutcome {
+    SYNCED,
+
+    /** Synced, but a repository rule forced pushing the branches in batches. */
+    SYNCED_PUSHED_IN_BATCHES,
+    CONFLICT,
+    STACKS_UNAVAILABLE,
+    OPEN_TERMINAL,
+    CANCELLED,
+}
 
 /** `gh stack sync [--prune]` plus the divergence resolution that non-interactive sync can't do itself. */
 class SyncWorkflow(private val cli: StackCli, private val gitDir: Path, private val prompts: Prompts) {
@@ -15,7 +24,13 @@ class SyncWorkflow(private val cli: StackCli, private val gitDir: Path, private 
         if (sync.exit == ExitCode.CONFLICT) return SyncOutcome.CONFLICT
         if (sync.exit == ExitCode.STACKS_UNAVAILABLE) return SyncOutcome.STACKS_UNAVAILABLE
         sync.orAbort("Sync")
-        if (!SyncOutput.isAborted(sync)) return SyncOutcome.SYNCED
+        if (!SyncOutput.isAborted(sync)) {
+            if (!SyncOutput.pushFailed(sync)) return SyncOutcome.SYNCED
+            val limit = PushLimit.parse(sync.combinedOutput)
+                ?: throw WorkflowAbort("Sync updated the stack but couldn't push it: ${sync.summary()}")
+            StackPusher(cli).pushInBatches(limit)
+            return SyncOutcome.SYNCED_PUSHED_IN_BATCHES
+        }
 
         return when (prompts.chooseDivergenceResolution(sync.combinedOutput)) {
             DivergenceChoice.USE_REMOTE -> {

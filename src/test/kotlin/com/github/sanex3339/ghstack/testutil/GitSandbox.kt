@@ -41,6 +41,13 @@ class GitSandbox private constructor(val root: Path) {
 
     fun cli(): StackCli = ProcessStackCli(runner, requireNotNull(GH), GIT, work)
 
+    /** Installs a pre-receive hook in `origin.git` (e.g. to emulate a GitHub ruleset). */
+    fun installOriginHook(script: String) {
+        val hook = root.resolve("origin.git/hooks/pre-receive")
+        hook.writeText("#!/bin/sh\n" + script.trimIndent() + "\n")
+        hook.toFile().setExecutable(true)
+    }
+
     fun close() {
         root.toFile().deleteRecursively()
     }

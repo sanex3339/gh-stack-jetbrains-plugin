@@ -9,10 +9,16 @@ class FakeStackCli(override val workDir: Path = Path.of("/repo")) : StackCli {
     val calls = mutableListOf<String>()
     private val rules = mutableListOf<Pair<String, CliResult>>()
     private val actions = mutableListOf<Pair<String, () -> Unit>>()
+    private val queued = mutableListOf<Pair<String, CliResult>>()
 
     /** Later rules win; a command matches when it starts with [prefix]. Unmatched commands succeed silently. */
     fun on(prefix: String, exitCode: Int = 0, stdout: String = "", stderr: String = "") {
         rules += prefix to CliResult(exitCode, stdout, stderr)
+    }
+
+    /** One-shot responses, used in order before [on] rules (e.g. a push that fails once, then succeeds). */
+    fun once(prefix: String, exitCode: Int = 0, stdout: String = "", stderr: String = "") {
+        queued += prefix to CliResult(exitCode, stdout, stderr)
     }
 
     fun onRun(prefix: String, action: () -> Unit) {
@@ -22,6 +28,10 @@ class FakeStackCli(override val workDir: Path = Path.of("/repo")) : StackCli {
     private fun respond(command: String): CliResult {
         calls += command
         actions.filter { command.startsWith(it.first) }.forEach { it.second() }
+        queued.firstOrNull { command.startsWith(it.first) }?.let {
+            queued.remove(it)
+            return it.second
+        }
         return rules.lastOrNull { command.startsWith(it.first) }?.second ?: CliResult(0, "", "")
     }
 

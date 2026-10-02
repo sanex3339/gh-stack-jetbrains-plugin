@@ -12,6 +12,8 @@ import com.github.sanex3339.ghstack.model.StackUi
 import com.github.sanex3339.ghstack.model.OperationState
 import com.github.sanex3339.ghstack.model.RemoveMode
 import com.github.sanex3339.ghstack.ops.InsertBranchWorkflow
+import com.github.sanex3339.ghstack.ops.PushOutcome
+import com.github.sanex3339.ghstack.ops.StackPusher
 import com.github.sanex3339.ghstack.ops.RemovalOutcome
 import com.github.sanex3339.ghstack.ops.RemoveBranchWorkflow
 import com.github.sanex3339.ghstack.ops.RepoSnapshot
@@ -92,6 +94,11 @@ object GhStackCommands {
         ensurePushRemote()
         when (SyncWorkflow(cli, gitDir, prompts).run(prune, snapshot())) {
             SyncOutcome.SYNCED -> GhStackNotifier.info(project, "Stack synced")
+            SyncOutcome.SYNCED_PUSHED_IN_BATCHES -> GhStackNotifier.info(
+                project,
+                "Stack synced",
+                "This repository limits how many branches one push may update, so the branches were pushed in batches.",
+            )
             SyncOutcome.CONFLICT -> GhStackNotifier.warn(
                 project,
                 "Sync hit a conflict, so nothing was changed",
@@ -107,9 +114,14 @@ object GhStackCommands {
         }
     }
 
-    fun push(project: Project) = ops(project).run("Push") {
+    fun push(project: Project) = ops(project).run("Push", progressText = "Pushing…") {
         ensurePushRemote()
-        stack("push")
+        when (val outcome = StackPusher(cli).push()) {
+            is PushOutcome.Pushed -> outcome.batchSize?.let {
+                GhStackNotifier.info(project, "Pushed in batches of $it", "This repository limits how many branches one push may update.")
+            }
+            is PushOutcome.Failed -> report(outcome.result, "gh stack push")
+        }
     }
 
     fun submit(project: Project) = ops(project).run("Submit") {
