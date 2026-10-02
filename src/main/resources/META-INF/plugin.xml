@@ -29,6 +29,8 @@
     <change-notes><![CDATA[
     <p><b>0.1.1</b></p>
     <ul>
+      <li>A spinner shows while switching branches, syncing, rebasing and other operations run.</li>
+      <li>The current branch updates right after switching, without waiting for pull request status from GitHub.</li>
       <li>Removed deprecated API usages.</li>
     </ul>
     <p><b>0.1.0</b>: first release</p>

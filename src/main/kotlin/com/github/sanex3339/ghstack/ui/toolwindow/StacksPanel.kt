@@ -1,5 +1,6 @@
 package com.github.sanex3339.ghstack.ui.toolwindow
 
+import com.github.sanex3339.ghstack.ide.GhStackOperations
 import com.github.sanex3339.ghstack.ide.StackStateListener
 import com.github.sanex3339.ghstack.ide.StackStateService
 import com.github.sanex3339.ghstack.model.BranchStatus
@@ -22,6 +23,7 @@ import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.TreeSpeedSearch
+import com.intellij.ui.components.JBLoadingPanel
 import com.intellij.ui.treeStructure.Tree
 import java.awt.BorderLayout
 import java.awt.event.MouseEvent
@@ -39,6 +41,7 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
     private val model = DefaultTreeModel(rootNode)
     private val tree = Tree(model)
     private val banner = BannerPanel(project)
+    private val loadingPanel = JBLoadingPanel(BorderLayout(), parent)
     private val expandedKeys = mutableSetOf<String>()
     private var shownRoot: Path? = null
     private var shownStacks: List<StackUi>? = null
@@ -71,9 +74,10 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
         val toolbar = actionManager.createActionToolbar("GhStackToolWindow", actionManager.getAction("GhStack.ToolWindow.Toolbar") as ActionGroup, true)
         toolbar.targetComponent = this
         setToolbar(toolbar.component)
+        loadingPanel.add(ScrollPaneFactory.createScrollPane(tree, true), BorderLayout.CENTER)
         setContent(
             JPanel(BorderLayout()).apply {
-                add(ScrollPaneFactory.createScrollPane(tree, true), BorderLayout.CENTER)
+                add(loadingPanel, BorderLayout.CENTER)
                 add(banner, BorderLayout.SOUTH)
             },
         )
@@ -90,6 +94,7 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
         val state = StackStateService.getInstance(project).activeState()
         banner.update(Banners.of(state))
         updateEmptyText(state)
+        updateProgress(state)
         val stacks = state?.stacks.orEmpty()
         if (stacks == shownStacks && state?.root == shownRoot) return
         val previouslySelected = (selectedNode() as? BranchNode)?.branch?.name
@@ -109,6 +114,17 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
             if (stack.isCurrent || stack.key in expandedKeys) tree.expandPath(TreePath(node.path))
         }
         select(previouslySelected ?: state?.currentBranch)
+    }
+
+    /** A spinner over the tree while an operation (switching branches, sync, rebase…) runs. */
+    private fun updateProgress(state: RepoState?) {
+        val text = state?.root?.let { GhStackOperations.getInstance(project).progressText(it) }
+        if (text != null) {
+            loadingPanel.setLoadingText(text)
+            if (!loadingPanel.isLoading) loadingPanel.startLoading()
+        } else if (loadingPanel.isLoading) {
+            loadingPanel.stopLoading()
+        }
     }
 
     private fun updateEmptyText(state: RepoState?) {

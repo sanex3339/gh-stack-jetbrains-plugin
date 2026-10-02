@@ -7,14 +7,18 @@ package com.github.sanex3339.ghstack.model
  */
 object StateMerger {
     fun merge(file: StackFile?, overlay: ViewSnapshot?, currentBranch: String?): List<StackUi> {
-        if (file == null) return listOfNotNull(overlay?.let { fromOverlay(null, it) })
+        if (file == null) return listOfNotNull(overlay?.let { fromOverlay(null, it, currentBranch) })
         val overlayIndex = overlay?.let { view ->
-            file.stacks.indexOfFirst { s -> s.trunk == view.trunk && s.branches.map { it.name } == view.branches.map { it.name } }
+            file.stacks.indexOfFirst { s ->
+                s.trunk == view.trunk && s.branches.map { it.name } == view.branches.map { it.name } &&
+                    // After switching to another stack the old overlay still matches its own stack; don't apply it.
+                    (currentBranch == null || s.hasBranch(currentBranch) || s.trunk == currentBranch)
+            }
         } ?: -1
         val currentIndex = if (overlayIndex >= 0) overlayIndex else currentBranch?.let { b -> file.stacks.indexOfFirst { it.hasBranch(b) } } ?: -1
         return file.stacks.mapIndexed { index, stack ->
             if (index == overlayIndex && overlay != null) {
-                fromOverlay(stack, overlay)
+                fromOverlay(stack, overlay, currentBranch)
             } else {
                 fromFile(stack, currentBranch, isCurrent = index == currentIndex)
             }
@@ -40,14 +44,15 @@ object StateMerger {
         isCurrent = isCurrent,
     )
 
-    private fun fromOverlay(stack: LocalStack?, view: ViewSnapshot) = StackUi(
+    /** [currentBranch] (read from HEAD) wins over the overlay's, which may predate a checkout. */
+    private fun fromOverlay(stack: LocalStack?, view: ViewSnapshot, currentBranch: String?) = StackUi(
         id = stack?.id,
         number = stack?.number,
         trunk = view.trunk,
         branches = view.branches.map { b ->
             BranchUi(
                 name = b.name,
-                isCurrent = b.name == view.currentBranch,
+                isCurrent = b.name == (currentBranch ?: view.currentBranch),
                 status = when {
                     b.isMerged -> BranchStatus.MERGED
                     b.isQueued -> BranchStatus.QUEUED

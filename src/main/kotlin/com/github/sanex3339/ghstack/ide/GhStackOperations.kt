@@ -26,10 +26,14 @@ import java.util.concurrent.ConcurrentHashMap
 @Service(Service.Level.PROJECT)
 class GhStackOperations(private val project: Project) {
     private val busyRoots: MutableSet<Path> = ConcurrentHashMap.newKeySet()
+    private val progressTexts = ConcurrentHashMap<Path, String>()
 
     fun isBusy(root: Path): Boolean = root in busyRoots
 
-    fun run(title: String, root: Path? = null, body: OperationScope.() -> Unit) {
+    /** What's running for [root] right now, e.g. "Switching to api…", for spinners in the UI. */
+    fun progressText(root: Path): String? = progressTexts[root]
+
+    fun run(title: String, root: Path? = null, progressText: String = "$title…", body: OperationScope.() -> Unit) {
         val stateService = StackStateService.getInstance(project)
         val repoRoot = root ?: stateService.activeRoot() ?: return
         val state = stateService.state(repoRoot)
@@ -43,6 +47,8 @@ class GhStackOperations(private val project: Project) {
             GhStackNotifier.warn(project, "Another Stacked PRs operation is still running")
             return
         }
+        progressTexts[repoRoot] = progressText
+        stateService.notifyChanged(repoRoot)
         object : Task.Backgroundable(project, "Stacked PRs: $title", true) {
             override fun run(indicator: ProgressIndicator) {
                 val cli = ProcessStackCli(
@@ -65,6 +71,8 @@ class GhStackOperations(private val project: Project) {
 
             override fun onFinished() {
                 busyRoots.remove(repoRoot)
+                progressTexts.remove(repoRoot)
+                stateService.notifyChanged(repoRoot)
                 LocalFileSystem.getInstance().findFileByNioFile(repoRoot)?.let { VfsUtil.markDirtyAndRefresh(true, true, false, it) }
                 stateService.requestLive(repoRoot)
             }

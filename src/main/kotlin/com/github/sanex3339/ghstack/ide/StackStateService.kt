@@ -4,6 +4,7 @@ import com.github.sanex3339.ghstack.cli.CliStatus
 import com.github.sanex3339.ghstack.cli.CommandRequest
 import com.github.sanex3339.ghstack.cli.GhStatusChecker
 import com.github.sanex3339.ghstack.model.GitDirStateParser
+import com.github.sanex3339.ghstack.model.GitHead
 import com.github.sanex3339.ghstack.model.OperationState
 import com.github.sanex3339.ghstack.model.StackFileParser
 import com.github.sanex3339.ghstack.model.StackFileResult
@@ -117,6 +118,9 @@ class StackStateService(private val project: Project, private val scope: Corouti
         requestAllLive()
     }
 
+    /** Re-renders listeners without re-reading anything (e.g. an operation started or finished). */
+    fun notifyChanged(root: Path) = publish(root)
+
     fun markStacksUnavailable(root: Path) {
         states.compute(root) { _, old -> (old ?: RepoState.initial(root)).copy(stacksUnavailable = true) }
         publish(root)
@@ -141,12 +145,15 @@ class StackStateService(private val project: Project, private val scope: Corouti
     }
 
     private fun refreshLive(root: Path) {
-        val repository = repository(root) ?: return
+        if (repository(root) == null) return
         val previous = state(root)
         val status = previous.cliStatus ?: GhStatusChecker(runner).check(IdeEnvironment.ghPath(), IdeEnvironment.gitPath(), root)
         val gitDir = previous.gitDir ?: resolveGitDir(root, status)
-        val currentBranch = repository.currentBranchName
+        val currentBranch = readCurrentBranch(gitDir)
         val files = readFiles(gitDir)
+        // Show the new current branch right away; `view --json` below talks to GitHub and can take seconds.
+        states[root] = compose(previous.copy(cliStatus = status, gitDir = gitDir), files, overlays[root], currentBranch)
+        publish(root)
         val overlay = if (status is CliStatus.Ready && shouldRunView(files.stackFile, currentBranch)) runView(status, root) else null
         if (overlay != null) overlays[root] = overlay else overlays.remove(root)
         fileStamps[root] = stamps(gitDir)
@@ -159,7 +166,7 @@ class StackStateService(private val project: Project, private val scope: Corouti
         val gitDir = previous.gitDir ?: return
         val stamps = stamps(gitDir)
         if (fileStamps.put(root, stamps) == stamps) return
-        states[root] = compose(previous, readFiles(gitDir), overlays[root], repository(root)?.currentBranchName)
+        states[root] = compose(previous, readFiles(gitDir), overlays[root], readCurrentBranch(gitDir))
         publish(root)
     }
 
@@ -204,8 +211,10 @@ class StackStateService(private val project: Project, private val scope: Corouti
         return if (result.ok) Path.of(result.stdout.trim()) else root.resolve(".git")
     }
 
+    private fun readCurrentBranch(gitDir: Path): String? = GitHead.currentBranch(StackFileStore.read(gitDir, "HEAD"))
+
     private fun stamps(gitDir: Path): List<Long> =
-        listOf(StackFileStore.STACK_FILE, StackFileStore.REBASE_STATE_FILE, StackFileStore.MODIFY_STATE_FILE, StackFileStore.REMOVAL_STATE_FILE).flatMap { name ->
+        listOf("HEAD", StackFileStore.STACK_FILE, StackFileStore.REBASE_STATE_FILE, StackFileStore.MODIFY_STATE_FILE, StackFileStore.REMOVAL_STATE_FILE).flatMap { name ->
             val file = gitDir.resolve(name).toFile()
             if (file.exists()) listOf(file.length(), file.lastModified()) else listOf(-1L, -1L)
         }

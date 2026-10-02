@@ -67,12 +67,12 @@ object GhStackCommands {
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
-    fun navigate(project: Project, vararg args: String) = ops(project).run("Switch branch") {
+    fun navigate(project: Project, vararg args: String) = ops(project).run("Switch branch", progressText = "Switching branch…") {
         if (args.first() == "trunk") ensurePushRemote()
         stack(*args)
     }
 
-    fun checkout(project: Project, branch: String) = ops(project).run("Check out $branch") {
+    fun checkout(project: Project, branch: String) = ops(project).run("Check out $branch", progressText = "Switching to $branch…") {
         ensurePushRemote()
         stack("checkout", branch)
     }

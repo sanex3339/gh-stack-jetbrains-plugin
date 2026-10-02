@@ -1,5 +1,6 @@
 package com.github.sanex3339.ghstack.ui.switcher
 
+import com.github.sanex3339.ghstack.ide.GhStackOperations
 import com.github.sanex3339.ghstack.ide.StackStateListener
 import com.github.sanex3339.ghstack.ide.StackStateService
 import com.github.sanex3339.ghstack.model.BranchStatus
@@ -28,6 +29,7 @@ import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidgetFactory
 import com.intellij.openapi.wm.impl.ExpandableComboAction
+import com.intellij.ui.AnimatedIcon
 import com.intellij.ui.awt.RelativePoint
 import com.intellij.util.Consumer
 import java.awt.Component
@@ -88,11 +90,13 @@ class StackSwitcherToolbarAction : ExpandableComboAction(), DumbAware {
 
     override fun update(e: AnActionEvent) {
         val project = e.project
-        val text = project?.let { StatusText.of(StackStateService.getInstance(it).activeState()) }
+        val state = project?.let { StackStateService.getInstance(it).activeState() }
+        val progress = state?.let { GhStackOperations.getInstance(project).progressText(it.root) }
+        val text = progress ?: StatusText.of(state)?.removePrefix("⧉ ")
         e.presentation.isEnabledAndVisible = text != null
         if (text != null) {
-            e.presentation.text = text.removePrefix("⧉ ")
-            e.presentation.icon = GhStackIcons.Stack
+            e.presentation.text = text
+            e.presentation.icon = if (progress != null) AnimatedIcon.Default.INSTANCE else GhStackIcons.Stack
             e.presentation.description = "Switch branches in the current stack"
         }
     }
@@ -141,7 +145,11 @@ private class StackStatusBarWidget(private val project: Project) : StatusBarWidg
 
     override fun getPresentation(): StatusBarWidget.WidgetPresentation = this
 
-    override fun getText(): String = StatusText.of(StackStateService.getInstance(project).activeState()).orEmpty()
+    override fun getText(): String {
+        val state = StackStateService.getInstance(project).activeState()
+        val progress = state?.let { GhStackOperations.getInstance(project).progressText(it.root) }
+        return progress?.let { "⧉ $it" } ?: StatusText.of(state).orEmpty()
+    }
 
     override fun getAlignment(): Float = Component.CENTER_ALIGNMENT
 

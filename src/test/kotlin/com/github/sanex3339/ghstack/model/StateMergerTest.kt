@@ -53,6 +53,22 @@ class StateMergerTest {
     }
 
     @Test
+    fun `the current marker follows HEAD before the overlay is refreshed`() {
+        val current = StateMerger.merge(githubFile, githubView, "frontend")[0]
+        assertTrue(current.branch("frontend")!!.isCurrent)
+        assertFalse(current.branch("api")!!.isCurrent)
+        assertEquals(BranchStatus.NEEDS_REBASE, current.branch("api")!!.status, "statuses still come from the overlay")
+    }
+
+    @Test
+    fun `an overlay from the previous stack is not applied after switching stacks`() {
+        val stacks = StateMerger.merge(githubFile, githubView, "spike-a")
+        assertFalse(stacks[0].isCurrent)
+        assertEquals(BranchStatus.OPEN, stacks[0].branch("api")!!.status, "file data, not the stale overlay")
+        assertTrue(stacks[1].isCurrent)
+    }
+
+    @Test
     fun `fallback mode builds the current stack from the overlay alone`() {
         val stack = StateMerger.merge(null, githubView, "api").single()
         assertNull(stack.number)
