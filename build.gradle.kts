@@ -1,4 +1,5 @@
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
+import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.4.0"
@@ -11,6 +12,11 @@ version = providers.gradleProperty("pluginVersion").get()
 
 kotlin {
     jvmToolchain(25)
+    compilerOptions {
+        // Rely on JVM default methods instead of generating "call super" bridges in classes that implement
+        // platform interfaces; those bridges show up as deprecated-API usages in the Plugin Verifier.
+        jvmDefault.set(JvmDefaultMode.NO_COMPATIBILITY)
+    }
 }
 
 repositories {
