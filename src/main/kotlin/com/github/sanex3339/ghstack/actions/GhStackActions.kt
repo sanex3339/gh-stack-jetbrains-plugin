@@ -28,7 +28,7 @@ import javax.swing.Icon
 import javax.swing.JComponent
 
 /**
- * Base for GH Stack actions. By default an action needs a ready CLI, no running operation,
+ * Base for Stacked PRs actions. By default an action needs a ready CLI, no running operation,
  * a current stack, and no rebase/modify in progress; subclasses relax or tighten that.
  */
 abstract class GhStackAction(icon: Icon? = null) : DumbAwareAction() {

@@ -6,18 +6,18 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.ValidationInfo
-import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBList
 import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.panel
+import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import javax.swing.JComponent
 import javax.swing.ListSelectionModel
 
 /** Chooses how far up the stack to merge; [candidates] are bottom → top and all have PRs. */
 class MergeDialog(project: Project, private val candidates: List<BranchUi>, initialMethod: MergeMethod) : DialogWrapper(project) {
     private val list = JBList(candidates.asReversed()).apply {
-        cellRenderer = SimpleListCellRenderer.create("") { branch: BranchUi -> "#${branch.pr?.number}  ${branch.name}" }
+        cellRenderer = textListCellRenderer { branch: BranchUi? -> branch?.let { "#${it.pr?.number}  ${it.name}" } }
         selectionMode = ListSelectionModel.SINGLE_SELECTION
         selectedIndex = 0
     }

@@ -6,8 +6,8 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
-group = "com.github.sanex3339.ghstack"
-version = "0.1.0"
+group = "com.github.sanex3339.stackedprs"
+version = providers.gradleProperty("pluginVersion").get()
 
 kotlin {
     jvmToolchain(25)
@@ -49,6 +49,17 @@ intellijPlatform {
             sinceBuild = "262"
             untilBuild = provider { null }
         }
+    }
+    // Secrets come from the environment (GitHub Actions secrets in release.yml); never commit them.
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+        // -PpublishChannel=beta publishes to a pre-release channel instead of the default one.
+        channels = providers.gradleProperty("publishChannel").map { listOf(it) }.orElse(listOf("default"))
     }
     pluginVerification {
         ides {

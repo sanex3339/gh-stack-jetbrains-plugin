@@ -22,7 +22,7 @@ import com.intellij.openapi.vfs.VfsUtil
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
-/** Runs one GH Stack operation per repository at a time, in a cancellable background task. */
+/** Runs one Stacked PRs operation per repository at a time, in a cancellable background task. */
 @Service(Service.Level.PROJECT)
 class GhStackOperations(private val project: Project) {
     private val busyRoots: MutableSet<Path> = ConcurrentHashMap.newKeySet()
@@ -36,14 +36,14 @@ class GhStackOperations(private val project: Project) {
         val status = state.cliStatus as? CliStatus.Ready
         val gitDir = state.gitDir
         if (status == null || gitDir == null) {
-            GhStackNotifier.warn(project, "GH Stack isn't ready yet", "The GH Stack tool window shows what's missing.")
+            GhStackNotifier.warn(project, "Stacked PRs isn't ready yet", "The Stacked PRs tool window shows what's missing.")
             return
         }
         if (!busyRoots.add(repoRoot)) {
-            GhStackNotifier.warn(project, "Another GH Stack operation is still running")
+            GhStackNotifier.warn(project, "Another Stacked PRs operation is still running")
             return
         }
-        object : Task.Backgroundable(project, "GH Stack: $title", true) {
+        object : Task.Backgroundable(project, "Stacked PRs: $title", true) {
             override fun run(indicator: ProgressIndicator) {
                 val cli = ProcessStackCli(
                     runner = IdeEnvironment.runner(),
@@ -57,7 +57,7 @@ class GhStackOperations(private val project: Project) {
                 try {
                     scope.body()
                 } catch (e: CommandCancelledException) {
-                    GhStackNotifier.warn(project, "$title cancelled", "If a rebase was interrupted, the GH Stack tool window shows how to continue or abort it.")
+                    GhStackNotifier.warn(project, "$title cancelled", "If a rebase was interrupted, the Stacked PRs tool window shows how to continue or abort it.")
                 } catch (e: WorkflowAbort) {
                     GhStackNotifier.error(project, "$title failed", e.message.orEmpty())
                 }
@@ -99,7 +99,7 @@ class OperationScope(
             ExitCode.CONFLICT -> GhStackNotifier.warn(
                 project,
                 "Rebase stopped on a conflict",
-                "Resolve the conflicts, then continue from the GH Stack tool window.",
+                "Resolve the conflicts, then continue from the Stacked PRs tool window.",
                 GhStackNotifier.action("Resolve conflicts…") { GhStackCommands.resolveConflicts(project) },
             )
             ExitCode.API_FAILURE -> GhStackNotifier.error(project, "GitHub API request failed", result.summary())
@@ -109,7 +109,7 @@ class OperationScope(
             }
             ExitCode.NOT_IN_STACK -> GhStackNotifier.warn(project, "The current branch isn't part of a stack", result.summary())
             ExitCode.DISAMBIGUATE -> GhStackNotifier.warn(project, "This branch is the trunk of several stacks", "Check out a branch of the stack you want first.")
-            ExitCode.MODIFY_RECOVERY -> GhStackNotifier.warn(project, "A modify session was interrupted", "Continue or abort it from the GH Stack tool window.")
+            ExitCode.MODIFY_RECOVERY -> GhStackNotifier.warn(project, "A modify session was interrupted", "Continue or abort it from the Stacked PRs tool window.")
             else -> GhStackNotifier.error(project, "$what failed", result.summary())
         }
     }

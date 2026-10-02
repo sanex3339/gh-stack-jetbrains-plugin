@@ -120,7 +120,7 @@ class ShowStackSwitcherAction : DumbAwareAction() {
 class StackStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun getId(): String = ID
 
-    override fun getDisplayName(): String = "GH Stack"
+    override fun getDisplayName(): String = "Stacked PRs"
 
     override fun createWidget(project: Project): StatusBarWidget = StackStatusBarWidget(project)
 
@@ -145,7 +145,7 @@ private class StackStatusBarWidget(private val project: Project) : StatusBarWidg
 
     override fun getAlignment(): Float = Component.CENTER_ALIGNMENT
 
-    override fun getTooltipText(): String = "GH Stack: click to switch branches"
+    override fun getTooltipText(): String = "Stacked PRs: click to switch branches"
 
     override fun getClickConsumer(): Consumer<MouseEvent> = Consumer { event ->
         val component = event.component

@@ -15,7 +15,13 @@ interface GhStackTerminal {
 }
 
 object TerminalCommands {
-    fun ghStack(ghPath: String, vararg args: String): String = gh(ghPath, "stack", *args)
+    private val isWindows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
 
-    fun gh(ghPath: String, vararg args: String): String = (listOf(ghPath) + args).joinToString(" ") { ShellQuote.quote(it) }
+    fun ghStack(ghPath: String, vararg args: String, windows: Boolean = isWindows): String = gh(ghPath, "stack", *args, windows = windows)
+
+    fun gh(ghPath: String, vararg args: String, windows: Boolean = isWindows): String {
+        if (!windows) return (listOf(ghPath) + args).joinToString(" ") { ShellQuote.quote(it) }
+        // PowerShell treats a quoted first token as a string, so invoke it with the call operator.
+        return "& " + (listOf(ghPath) + args).joinToString(" ") { ShellQuote.quotePowerShell(it) }
+    }
 }

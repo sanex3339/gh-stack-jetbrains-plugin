@@ -1,8 +1,10 @@
-# GH Stack — JetBrains plugin for `gh stack`
+# Stacked PRs for GitHub — JetBrains plugin
 
-A WebStorm (and any JetBrains IDE) UI for GitHub stacked pull requests, built on the
-[`gh stack`](https://github.com/github/gh-stack) GitHub CLI extension. Every change goes through the
-CLI; the plugin only reads its state files.
+A WebStorm (and any JetBrains IDE) UI for GitHub stacked pull requests, built on GitHub's
+[`gh stack`](https://github.com/github/gh-stack) CLI extension. Every change goes through the CLI;
+the plugin only reads its state files.
+
+*Not affiliated with or endorsed by GitHub. GitHub is a trademark of GitHub, Inc.*
 
 ## Requirements
 
@@ -12,9 +14,9 @@ CLI; the plugin only reads its state files.
 
 ## Features
 
-- **GH Stack tool window** (right side): every local stack as a tree, top → bottom, with PR number and
-  status (`✓` merged, `◎` queued, `⚠` needs rebase, `○` open, `◌` not submitted). Double-click a
-  branch to switch to it; right-click for insert, layer diff, rebase-from-here, open PR.
+- **Stacked PRs tool window** (right side): every local stack as a tree, top → bottom, with PR number
+  and status (`✓` merged, `◎` queued, `⚠` needs rebase, `○` open, `◌` not submitted). Double-click a
+  branch to switch to it; right-click for insert, remove, layer diff, rebase-from-here, open PR.
 - **Stack switcher**: the `⧉ api 2/4` dropdown next to the Git branch widget, the status bar widget,
   or `⌘⌥K L` / `Ctrl+Alt+X L`. Lists the stack's branches plus other stacks; click to switch.
 - **Insert branch below/above**: creates the branch at the right parent, re-registers the stack and
@@ -44,19 +46,46 @@ Two-stroke chords: prefix `⌘⌥K` (macOS) or `Ctrl+Alt+X` (Windows/Linux), the
 ./gradlew test                       # unit + real-CLI integration tests (skipped without gh stack)
 ./gradlew runIde                     # sandbox IDE with the plugin
 ./gradlew buildPlugin                # build/distributions/*.zip → Settings ▸ Plugins ▸ Install Plugin from Disk
+./gradlew verifyPlugin               # binary compatibility with JetBrains' recommended IDE releases
 ```
 
-Add `-PideLocalPath=/path/to/WebStorm.app` to use an installed IDE instead of downloading one, and
-`-PrunIdeProject=/path/to/repo` to open a project in the sandbox.
+Add `-PideLocalPath=/path/to/WebStorm.app` to use an installed IDE instead of downloading one (also
+makes `verifyPlugin` check against it), and `-PrunIdeProject=/path/to/repo` to open a project in the
+sandbox.
 
 ## CI
 
-- `.github/workflows/ci.yml` runs on pushes to `main`, pull requests, and manually. It installs
-  `gh stack` v0.1.1, then runs `./gradlew test buildPlugin`. With `GHSTACK_REQUIRE_CLI=true`, the CLI
-  integration tests fail instead of skipping when the extension is missing. The plugin zip is uploaded
-  as an artifact.
-- `.github/workflows/verify.yml` runs `./gradlew verifyPlugin` against JetBrains' recommended
-  WebStorm releases. It runs on pushes to `main`, weekly (Mondays 06:00 UTC), and manually.
-  Locally, `./gradlew verifyPlugin -PideLocalPath=…` checks against your installed IDE instead.
+- `.github/workflows/ci.yml` (push to `main`, PRs, manual): installs `gh stack` v0.1.1 and runs
+  `./gradlew test buildPlugin` with `GHSTACK_REQUIRE_CLI=true`, so the CLI integration tests fail
+  instead of skipping when the extension is missing; uploads the plugin zip.
+- `.github/workflows/verify.yml` (push to `main`, weekly, manual): `./gradlew verifyPlugin`.
+- `.github/workflows/release.yml` (tags `v*`): tests, verifies, signs and publishes to JetBrains
+  Marketplace, then creates a GitHub release with the signed zip.
+
+## Releasing
+
+One-time setup:
+
+1. Create the signing key and certificate (keep them out of git):
+   ```bash
+   openssl genpkey -aes-256-cbc -algorithm RSA -out private.pem -pkeyopt rsa_keygen_bits:4096
+   openssl req -key private.pem -new -x509 -days 3650 -subj "/CN=sanex3339" -out chain.crt
+   ```
+2. Add repository secrets: `CERTIFICATE_CHAIN` (contents of `chain.crt`), `PRIVATE_KEY` (contents of
+   `private.pem`), `PRIVATE_KEY_PASSWORD`, and `PUBLISH_TOKEN` from
+   <https://plugins.jetbrains.com/author/me/tokens>.
+3. **First upload is manual:** build a signed zip locally
+   (`CERTIFICATE_CHAIN="$(cat chain.crt)" PRIVATE_KEY="$(cat private.pem)" PRIVATE_KEY_PASSWORD=… ./gradlew signPlugin`)
+   and upload `build/distributions/*-signed.zip` at <https://plugins.jetbrains.com/author/me> →
+   *Add new plugin* (license: MIT, source: this repository). JetBrains reviews it, usually within a few
+   working days.
+
+Every release after that: bump `pluginVersion` in `gradle.properties`, update `<change-notes>` in
+`plugin.xml`, commit, then `git tag v<version> && git push --tags`. Each version is reviewed again
+before users get it. Pass `-PpublishChannel=beta` to publish to a beta channel instead.
 
 `scripts/dump-keystrokes.py` regenerates the bundled-shortcut fixture used by `KeymapConflictTest`.
+
+## License
+
+[MIT](LICENSE)

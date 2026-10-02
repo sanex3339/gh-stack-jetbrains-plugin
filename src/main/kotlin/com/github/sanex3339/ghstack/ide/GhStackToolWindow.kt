@@ -4,7 +4,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindowManager
 
 object GhStackToolWindow {
-    const val ID = "GH Stack"
+    const val ID = "Stacked PRs"
     const val CONSOLE_TAB = "Console"
 
     /** Must be called on the EDT. */

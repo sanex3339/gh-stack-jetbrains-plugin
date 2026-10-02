@@ -133,7 +133,7 @@ class StackStateService(private val project: Project, private val scope: Corouti
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        LOG.warn("GH Stack refresh failed for $root", e)
+                        LOG.warn("Stacked PRs refresh failed for $root", e)
                     }
                 }
             }

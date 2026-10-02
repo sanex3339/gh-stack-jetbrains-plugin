@@ -54,7 +54,7 @@ enum class RebaseMode(val title: String, vararg val args: String) {
     DOWNSTACK("Rebase downstack", "rebase", "--downstack"),
 }
 
-/** Everything the UI can ask GH Stack to do. Entry points are called on the EDT. */
+/** Everything the UI can ask Stacked PRs to do. Entry points are called on the EDT. */
 object GhStackCommands {
     private fun ops(project: Project) = GhStackOperations.getInstance(project)
 

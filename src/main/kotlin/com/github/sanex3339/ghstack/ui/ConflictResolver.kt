@@ -15,6 +15,6 @@ object ConflictResolver {
     /** Opens the IDE merge tool; the Git merge provider stages each file as it's resolved. EDT only. */
     fun showMergeDialog(project: Project, files: List<Path>) {
         val virtualFiles = files.mapNotNull { LocalFileSystem.getInstance().refreshAndFindFileByNioFile(it) }
-        if (virtualFiles.isNotEmpty()) AbstractVcsHelper.getInstance(project).showMergeDialog(virtualFiles)
+        if (virtualFiles.isNotEmpty()) AbstractVcsHelper.getInstance(project).showMergeDialogWithResult(virtualFiles)
     }
 }

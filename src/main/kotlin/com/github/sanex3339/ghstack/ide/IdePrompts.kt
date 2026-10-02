@@ -45,14 +45,15 @@ class IdePrompts(private val project: Project) : Prompts {
         }
     }
 
+    /** One button per remote: repositories rarely have more than a few. */
     override fun chooseRemote(remotes: List<String>): String? = onEdt {
-        val index = Messages.showChooseDialog(
+        val index = Messages.showDialog(
             project,
             "This repository has several remotes. Which one should gh stack push to? (Saved as remote.pushDefault.)",
             "Choose Remote",
+            (remotes + "Cancel").toTypedArray(),
+            remotes.indexOf("origin").coerceAtLeast(0),
             Messages.getQuestionIcon(),
-            remotes.toTypedArray(),
-            remotes.firstOrNull { it == "origin" } ?: remotes.first(),
         )
         remotes.getOrNull(index)
     }

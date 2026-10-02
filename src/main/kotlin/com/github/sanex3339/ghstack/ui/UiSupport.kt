@@ -15,7 +15,7 @@ object GhStackIcons {
     val Stack: Icon = IconLoader.getIcon("/icons/ghStack.svg", GhStackIcons::class.java)
 }
 
-/** A branch selected in the GH Stack tree, exposed to actions through the data context. */
+/** A branch selected in the Stacked PRs tree, exposed to actions through the data context. */
 data class SelectedBranch(val root: Path, val stack: StackUi, val branch: BranchUi)
 
 object GhStackDataKeys {

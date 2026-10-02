@@ -1,23 +1,50 @@
 <idea-plugin>
-    <id>com.github.sanex3339.ghstack</id>
-    <name>GH Stack</name>
-    <vendor>sanex3339</vendor>
+    <!-- The id is permanent once published to JetBrains Marketplace. -->
+    <id>com.github.sanex3339.stackedprs</id>
+    <name>Stacked PRs for GitHub</name>
+    <vendor email="sanex3339@gmail.com" url="https://github.com/sanex3339">sanex3339</vendor>
     <description><![CDATA[
-    Work with GitHub stacked pull requests from the IDE instead of the terminal.
-    <p>GH Stack is a UI for the <a href="https://github.com/github/gh-stack">gh stack</a> GitHub CLI extension:
-    see every stack and its pull requests, switch between layers, insert branches, rebase, push, submit,
-    sync and merge with one click.</p>
+    <p>Work with GitHub <b>stacked pull requests</b> from the IDE instead of the terminal.
+    A UI for GitHub's <a href="https://github.com/github/gh-stack">gh stack</a> CLI extension.</p>
+
+    <ul>
+      <li><b>Stacks tool window</b>: every local stack as a tree with PR numbers and status:
+          merged, queued, needs rebase, open, not submitted.</li>
+      <li><b>Stack switcher</b> in the main toolbar and status bar: jump to any branch of any stack.</li>
+      <li><b>Insert a branch</b> below or above any layer in one click, move changes into it, then
+          <b>Submit</b> to open its pull request and update the stack on GitHub.</li>
+      <li><b>Remove a branch</b> from the stack: drop its commits or fold them into a neighbour.</li>
+      <li><b>Sync</b>, <b>rebase</b> (stack, upstack, downstack), <b>push</b>, <b>submit</b> and <b>merge</b> buttons.
+          Rebase conflicts open the IDE merge tool, with Continue and Abort.</li>
+      <li><b>Layer diff</b>: a branch's own changes, exactly what its pull request shows.</li>
+    </ul>
+
+    <p><b>Requirements:</b> <a href="https://cli.github.com">GitHub CLI</a> logged in, and the extension:
+    <code>gh extension install github/gh-stack</code>.</p>
+
+    <p>Source code and issues: <a href="https://github.com/sanex3339/stacked-prs-jetbrains-plugin">github.com/sanex3339/stacked-prs-jetbrains-plugin</a>.</p>
+
+    <p><i>Not affiliated with or endorsed by GitHub. GitHub is a trademark of GitHub, Inc.</i></p>
     ]]></description>
+    <change-notes><![CDATA[
+    <p>First release:</p>
+    <ul>
+      <li>Stacks tool window, stack switcher (main toolbar, status bar, shortcut) and Git ▸ Stacked PRs menu.</li>
+      <li>Insert branch below/above, remove branch (drop or fold), new stack, add branch, unstack.</li>
+      <li>Sync, rebase, push, submit (with pull request titles and recreating the stack on GitHub when its order changes) and merge.</li>
+      <li>Rebase conflict handling in the IDE merge tool; layer diff; <code>gh stack modify</code> in the terminal.</li>
+    </ul>
+    ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>Git4Idea</depends>
     <depends optional="true" config-file="ghstack-terminal.xml">org.jetbrains.plugins.terminal</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <notificationGroup id="GH Stack" displayType="BALLOON"/>
-        <applicationConfigurable parentId="tools" id="com.github.sanex3339.ghstack.settings" displayName="GH Stack"
+        <notificationGroup id="Stacked PRs" displayType="BALLOON"/>
+        <applicationConfigurable parentId="tools" id="com.github.sanex3339.ghstack.settings" displayName="Stacked PRs"
                                  instance="com.github.sanex3339.ghstack.settings.GhStackConfigurable"/>
-        <toolWindow id="GH Stack" anchor="right" icon="/icons/ghStack.svg"
+        <toolWindow id="Stacked PRs" anchor="right" icon="/icons/ghStack.svg"
                     factoryClass="com.github.sanex3339.ghstack.ui.toolwindow.GhStackToolWindowFactory"/>
         <statusBarWidgetFactory id="GhStackStatusBar"
                                 implementation="com.github.sanex3339.ghstack.ui.switcher.StackStatusBarWidgetFactory"/>
@@ -32,7 +59,7 @@
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="L"/>
         </action>
         <action id="GhStack.ShowToolWindow" class="com.github.sanex3339.ghstack.actions.ShowToolWindowAction"
-                text="Show GH Stack Tool Window">
+                text="Show Stacked PRs Tool Window">
             <keyboard-shortcut keymap="$default" first-keystroke="control alt X" second-keystroke="W"/>
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt K" second-keystroke="W"/>
             <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta alt K" second-keystroke="W"/>
@@ -150,11 +177,11 @@
         <action id="GhStack.Refresh" class="com.github.sanex3339.ghstack.actions.RefreshAction"
                 text="Refresh" description="Re-check gh and reload the stacks"/>
         <action id="GhStack.Settings" class="com.github.sanex3339.ghstack.actions.OpenSettingsAction"
-                text="GH Stack Settings…"/>
+                text="Stacked PRs Settings…"/>
         <action id="GhStack.RepoSelector" class="com.github.sanex3339.ghstack.actions.RepoSelectorAction"
                 text="Repository"/>
         <action id="GhStack.MainToolbarSwitcher" class="com.github.sanex3339.ghstack.ui.switcher.StackSwitcherToolbarAction"
-                text="GH Stack Switcher">
+                text="Stacked PRs Switcher">
             <add-to-group group-id="MainToolbarVCSGroup" anchor="last"/>
         </action>
 
@@ -220,7 +247,7 @@
             <reference ref="GhStack.RemoveFromStack"/>
             <reference ref="GhStack.ShowToolWindow"/>
         </group>
-        <group id="GhStack.MainMenu" text="GH Stack" popup="true">
+        <group id="GhStack.MainMenu" text="Stacked PRs" popup="true">
             <add-to-group group-id="Git.MainMenu" anchor="last"/>
             <reference ref="GhStack.ShowSwitcher"/>
             <reference ref="GhStack.Up"/>

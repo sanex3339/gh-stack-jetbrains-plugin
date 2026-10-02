@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish to JetBrains Marketplace
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GHSTACK_REQUIRE_CLI: "true"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the tag matches pluginVersion
+        run: |
+          version=$(grep '^pluginVersion=' gradle.properties | cut -d= -f2)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match pluginVersion=$version in gradle.properties"
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Install the gh stack extension (for integration tests)
+        run: gh extension install github/gh-stack --pin v0.1.1
+
+      - name: Test, sign and publish
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+        run: ./gradlew test verifyPlugin publishPlugin
+
+      - name: Create the GitHub release
+        run: gh release create "$GITHUB_REF_NAME" build/distributions/*-signed.zip --title "$GITHUB_REF_NAME" --generate-notes

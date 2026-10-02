@@ -6,17 +6,17 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.ValidationInfo
-import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBTextArea
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.panel
+import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import javax.swing.JComponent
 
 class AddBranchDialog(project: Project, top: String) : DialogWrapper(project) {
     private val nameField = JBTextField()
     private val modeCombo = ComboBox(AddCommitMode.entries.toTypedArray()).apply {
-        renderer = SimpleListCellRenderer.create("") { mode: AddCommitMode -> label(mode) }
+        renderer = textListCellRenderer { mode: AddCommitMode? -> mode?.let(::label) }
     }
     private val messageArea = JBTextArea(3, 40).apply { isEnabled = false }
 

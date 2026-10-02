@@ -7,7 +7,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 
 object GhStackNotifier {
-    private const val GROUP_ID = "GH Stack"
+    private const val GROUP_ID = "Stacked PRs"
 
     fun info(project: Project, title: String, content: String = "", vararg actions: NotificationAction) =
         notify(project, title, content, NotificationType.INFORMATION, actions.toList())

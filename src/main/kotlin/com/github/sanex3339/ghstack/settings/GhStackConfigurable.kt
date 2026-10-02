@@ -11,7 +11,7 @@ import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.panel
 
-class GhStackConfigurable : BoundConfigurable("GH Stack") {
+class GhStackConfigurable : BoundConfigurable("Stacked PRs") {
     private val settings get() = GhStackSettings.getInstance().state
 
     override fun createPanel(): DialogPanel = panel {
