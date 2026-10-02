@@ -27,7 +27,11 @@
     <p><i>Not affiliated with or endorsed by GitHub. GitHub is a trademark of GitHub, Inc.</i></p>
     ]]></description>
     <change-notes><![CDATA[
-    <p>First release:</p>
+    <p><b>0.1.1</b></p>
+    <ul>
+      <li>Removed deprecated API usages.</li>
+    </ul>
+    <p><b>0.1.0</b>: first release</p>
     <ul>
       <li>Stacks tool window, stack switcher (main toolbar, status bar, shortcut) and Git ▸ Stacked PRs menu.</li>
       <li>Insert branch below/above, remove branch (drop or fold), new stack, add branch, unstack.</li>
