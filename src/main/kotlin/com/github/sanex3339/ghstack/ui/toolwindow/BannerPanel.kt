@@ -71,6 +71,12 @@ class BannerPanel(private val project: Project) : JPanel(BorderLayout()) {
                 panel.text = if (banner.count == 1) "1 branch isn't on GitHub yet." else "${banner.count} branches aren't on GitHub yet."
                 panel.createActionLabel("Submit") { GhStackCommands.submit(project) }
             }
+            is Banner.DraftsBlocking -> {
+                val count = banner.prNumbers.size
+                panel.text = (if (count == 1) "1 pull request is a draft" else "$count pull requests are drafts") +
+                    ", so the stack can't be merged."
+                panel.createActionLabel("Mark Ready for Review") { GhStackCommands.markReady(project, banner.prNumbers) }
+            }
             Banner.FallbackMode -> panel.text = "Unsupported gh-stack data format: showing only the current stack."
         }
         return panel

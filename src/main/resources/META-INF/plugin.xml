@@ -34,7 +34,11 @@
       <li>Push, Sync and Submit work in repositories whose rules limit how many branches one push may update
           (e.g. "Pushes can not update more than 5 branches"): branches are pushed in batches.</li>
       <li>Sync no longer reports success when its push failed.</li>
-      <li>Push and Submit are now also in the stack switcher dropdown.</li>
+      <li>Merge status per pull request: draft, review required, changes requested, checks failing or running,
+          conflicts, approved, and "blocked by #N" when a lower layer blocks merging the stack.</li>
+      <li>Mark Ready for Review for one pull request or the whole stack; new pull requests are created ready by default.</li>
+      <li>Leaner stack switcher dropdown: the trunk is a row, Push, Submit and Insert Branch Above are in it,
+          and the Up/Down/Top/Bottom items moved out (their shortcuts still work).</li>
       <li>Removed deprecated API usages.</li>
     </ul>
     <p><b>0.1.0</b>: first release</p>
@@ -122,6 +126,10 @@
         </action>
         <action id="GhStack.Submit" class="com.github.sanex3339.ghstack.actions.SubmitAction"
                 text="Submit…" description="Push, open PRs for new branches and link the stack on GitHub"/>
+        <action id="GhStack.MarkReady" class="com.github.sanex3339.ghstack.actions.MarkReadyAction"
+                text="Mark Ready for Review" description="Mark this branch's draft pull request ready for review (gh pr ready)"/>
+        <action id="GhStack.MarkStackReady" class="com.github.sanex3339.ghstack.actions.MarkStackReadyAction"
+                text="Mark Stack Ready for Review" description="Mark every draft pull request in the stack ready for review; drafts block merging the stack"/>
         <action id="GhStack.SubmitInTerminal" class="com.github.sanex3339.ghstack.actions.SubmitInTerminalAction"
                 text="Submit in Terminal" description="Run the interactive gh stack submit editor"/>
         <action id="GhStack.Merge" class="com.github.sanex3339.ghstack.actions.MergeAction"
@@ -239,25 +247,23 @@
             <reference ref="GhStack.LayerDiff"/>
             <reference ref="GhStack.RebaseUpstackFromHere"/>
             <separator/>
+            <reference ref="GhStack.MarkReady"/>
             <reference ref="GhStack.OpenPr"/>
             <reference ref="GhStack.CopyPrUrl"/>
         </group>
         <group id="GhStack.SwitcherFooter">
-            <reference ref="GhStack.Up"/>
-            <reference ref="GhStack.Down"/>
-            <reference ref="GhStack.Top"/>
-            <reference ref="GhStack.Bottom"/>
-            <reference ref="GhStack.Trunk"/>
-            <separator/>
             <reference ref="GhStack.Rebase"/>
             <reference ref="GhStack.RebaseUpstack"/>
             <reference ref="GhStack.RebaseDownstack"/>
             <separator/>
             <reference ref="GhStack.Push"/>
             <reference ref="GhStack.Submit"/>
+            <reference ref="GhStack.MarkStackReady"/>
             <separator/>
+            <reference ref="GhStack.InsertAbove"/>
             <reference ref="GhStack.InsertBelow"/>
             <reference ref="GhStack.RemoveFromStack"/>
+            <separator/>
             <reference ref="GhStack.ShowToolWindow"/>
         </group>
         <group id="GhStack.MainMenu" text="Stacked PRs" popup="true">
@@ -280,6 +286,7 @@
             <reference ref="GhStack.Push"/>
             <reference ref="GhStack.Submit"/>
             <reference ref="GhStack.SubmitInTerminal"/>
+            <reference ref="GhStack.MarkStackReady"/>
             <reference ref="GhStack.Merge"/>
             <separator/>
             <reference ref="GhStack.AddBranch"/>

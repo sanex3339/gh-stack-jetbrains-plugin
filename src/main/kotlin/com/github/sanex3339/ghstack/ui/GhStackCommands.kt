@@ -145,6 +145,15 @@ object GhStackCommands {
 
     fun submitInTerminal(project: Project) = runInTerminal(project, "submit")
 
+    fun markReady(project: Project, prNumbers: List<Int>) {
+        if (prNumbers.isEmpty()) return
+        val what = if (prNumbers.size == 1) "#${prNumbers.single()}" else "${prNumbers.size} pull requests"
+        ops(project).run("Mark ready for review", progressText = "Marking $what ready…") {
+            prNumbers.forEach { cli.gh("pr", "ready", it.toString()).orAbort("Marking #$it ready for review") }
+            GhStackNotifier.info(project, "Marked $what ready for review")
+        }
+    }
+
     fun merge(project: Project) {
         val stack = state(project)?.currentStack ?: return
         val candidates = stack.activeBranches.filter { it.pr != null && it.status != BranchStatus.QUEUED }

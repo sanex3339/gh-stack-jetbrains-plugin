@@ -4,7 +4,17 @@ enum class BranchStatus { MERGED, QUEUED, NEEDS_REBASE, OPEN, NOT_SUBMITTED }
 
 data class PrUi(val number: Int, val url: String?, val state: PrState)
 
-data class BranchUi(val name: String, val isCurrent: Boolean, val status: BranchStatus, val pr: PrUi?)
+data class BranchUi(
+    val name: String,
+    val isCurrent: Boolean,
+    val status: BranchStatus,
+    val pr: PrUi?,
+    /** Set for the current stack once GitHub answered; see [MergeReadiness]. */
+    val details: PrDetails? = null,
+    val blocker: MergeBlocker? = null,
+    /** The lowest layer below that blocks merging this one, e.g. "#123". */
+    val blockedBy: String? = null,
+)
 
 /** A stack prepared for display. [branches] are ordered bottom → top, like the CLI; the UI reverses them. */
 data class StackUi(
@@ -27,6 +37,9 @@ data class StackUi(
     val needsRebase: Boolean get() = activeBranches.any { it.status == BranchStatus.NEEDS_REBASE }
 
     val unsubmittedCount: Int get() = activeBranches.count { it.status == BranchStatus.NOT_SUBMITTED }
+
+    /** Open pull requests GitHub reports as drafts (known only once details were fetched). */
+    val draftPrNumbers: List<Int> get() = activeBranches.filter { it.details?.isDraft == true }.mapNotNull { it.pr?.number }
 
     fun branch(name: String): BranchUi? = branches.firstOrNull { it.name == name }
 

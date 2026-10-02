@@ -29,7 +29,7 @@ enum class MergeMethodPreference(private val label: String) {
 class GhStackSettings : SimplePersistentStateComponent<GhStackSettings.SettingsState>(SettingsState()) {
     class SettingsState : BaseState() {
         var ghPath by string()
-        var draftByDefault by property(true)
+        var draftByDefault by property(false)
         var mergePreference by enum(MergeMethodPreference.REMEMBER_LAST)
         var lastMergeMethod by enum(MergeMethod.SQUASH)
     }

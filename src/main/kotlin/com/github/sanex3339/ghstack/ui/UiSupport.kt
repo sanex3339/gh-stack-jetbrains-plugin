@@ -3,6 +3,7 @@ package com.github.sanex3339.ghstack.ui
 import com.github.sanex3339.ghstack.model.BranchStatus
 import com.github.sanex3339.ghstack.model.BranchUi
 import com.github.sanex3339.ghstack.model.StackUi
+import com.github.sanex3339.ghstack.state.Tone
 import com.intellij.openapi.actionSystem.DataKey
 import com.intellij.openapi.util.IconLoader
 import com.intellij.ui.JBColor
@@ -43,6 +44,18 @@ object StatusGlyphs {
         BranchStatus.OPEN -> "open"
         BranchStatus.NOT_SUBMITTED -> "not submitted"
     }
+
+    private val red = JBColor(0xCF222E, 0xF85149)
+
+    fun badgeAttributes(tone: Tone): SimpleTextAttributes = SimpleTextAttributes(
+        SimpleTextAttributes.STYLE_SMALLER,
+        when (tone) {
+            Tone.POSITIVE -> green
+            Tone.NEUTRAL -> JBColor.GRAY
+            Tone.WARNING -> orange
+            Tone.NEGATIVE -> red
+        },
+    )
 
     fun attributes(status: BranchStatus): SimpleTextAttributes = SimpleTextAttributes(
         SimpleTextAttributes.STYLE_PLAIN,

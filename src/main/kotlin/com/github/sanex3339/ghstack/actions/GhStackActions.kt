@@ -130,6 +130,33 @@ class SubmitAction : GhStackAction(AllIcons.Vcs.Vendors.Github) {
     override fun perform(project: Project, e: AnActionEvent) = GhStackCommands.submit(project)
 }
 
+/** Marks the selected (or current) branch's draft pull request ready for review. */
+class MarkReadyAction : GhStackAction() {
+    override fun isVisible(project: Project, state: RepoState, e: AnActionEvent) = draftPr(e, state) != null
+
+    override fun isEnabled(state: RepoState, e: AnActionEvent) = draftPr(e, state) != null
+
+    override fun perform(project: Project, e: AnActionEvent) {
+        val state = StackStateService.getInstance(project).activeState() ?: return
+        draftPr(e, state)?.let { GhStackCommands.markReady(project, listOf(it)) }
+    }
+
+    private fun draftPr(e: AnActionEvent, state: RepoState): Int? =
+        targetBranch(e, state)?.third?.takeIf { it.details?.isDraft == true }?.pr?.number
+}
+
+/** Marks every draft pull request of the current stack ready; only shown when there are drafts. */
+class MarkStackReadyAction : GhStackAction() {
+    override fun isVisible(project: Project, state: RepoState, e: AnActionEvent) = state.currentStack?.draftPrNumbers?.isNotEmpty() == true
+
+    override fun isEnabled(state: RepoState, e: AnActionEvent) = state.currentStack?.draftPrNumbers?.isNotEmpty() == true
+
+    override fun perform(project: Project, e: AnActionEvent) {
+        val drafts = StackStateService.getInstance(project).activeState()?.currentStack?.draftPrNumbers.orEmpty()
+        GhStackCommands.markReady(project, drafts)
+    }
+}
+
 class SubmitInTerminalAction : GhStackAction() {
     override fun isVisible(project: Project, state: RepoState, e: AnActionEvent) = GhStackTerminal.getInstance(project) != null
 

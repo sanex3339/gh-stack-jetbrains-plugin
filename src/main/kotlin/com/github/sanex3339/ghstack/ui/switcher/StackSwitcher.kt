@@ -6,6 +6,7 @@ import com.github.sanex3339.ghstack.ide.StackStateService
 import com.github.sanex3339.ghstack.model.BranchStatus
 import com.github.sanex3339.ghstack.model.BranchUi
 import com.github.sanex3339.ghstack.model.StackUi
+import com.github.sanex3339.ghstack.state.BranchBadges
 import com.github.sanex3339.ghstack.state.StatusText
 import com.github.sanex3339.ghstack.ui.GhStackCommands
 import com.github.sanex3339.ghstack.ui.GhStackIcons
@@ -45,6 +46,7 @@ object StackSwitcherPopup {
         stacks.firstOrNull { it.isCurrent }?.let { current ->
             group.addSeparator("${current.title} · ${current.trunk}")
             current.branches.asReversed().forEach { group.add(SwitchToBranchAction(project, current, it)) }
+            group.add(SwitchToTrunkAction(project, current))
         }
         val others = stacks.filter { !it.isCurrent }
         if (others.isNotEmpty()) {
@@ -70,8 +72,9 @@ private class SwitchToBranchAction(
 ) : DumbAwareAction() {
     init {
         val pr = branch.pr?.let { "   #${it.number}" }.orEmpty()
-        templatePresentation.setText("${StatusGlyphs.glyph(branch.status)}  ${branch.name}$pr", false)
-        templatePresentation.description = "${StatusGlyphs.label(branch.status)} · ${stack.title}"
+        val badges = BranchBadges.of(branch).joinToString(" · ") { it.text }
+        templatePresentation.setText("${StatusGlyphs.glyph(branch.status)}  ${branch.name}$pr   $badges", false)
+        templatePresentation.description = "$badges · ${stack.title}"
         templatePresentation.icon = if (branch.isCurrent) AllIcons.Actions.Checked else null
     }
 
@@ -82,6 +85,18 @@ private class SwitchToBranchAction(
     }
 
     override fun actionPerformed(e: AnActionEvent) = GhStackCommands.checkout(project, branch.name)
+}
+
+/** The trunk as the last row of the current stack, like in the tree. */
+private class SwitchToTrunkAction(private val project: Project, stack: StackUi) : DumbAwareAction() {
+    init {
+        templatePresentation.setText("└  ${stack.trunk}", false)
+        templatePresentation.description = "Check out the trunk (gh stack trunk)"
+    }
+
+    override fun getActionUpdateThread() = ActionUpdateThread.BGT
+
+    override fun actionPerformed(e: AnActionEvent) = GhStackCommands.navigate(project, "trunk")
 }
 
 /** Dropdown next to the Git branch widget in the main toolbar: `⧉ api 2/4 ▾`. */

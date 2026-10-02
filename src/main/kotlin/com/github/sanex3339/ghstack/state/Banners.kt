@@ -15,6 +15,7 @@ sealed interface Banner {
     data object ModifyPendingSubmit : Banner
     data object StacksUnavailable : Banner
     data class Unsubmitted(val count: Int) : Banner
+    data class DraftsBlocking(val prNumbers: List<Int>) : Banner
     data object FallbackMode : Banner
 }
 
@@ -37,6 +38,7 @@ object Banners {
         }
         if (state.stacksUnavailable) return Banner.StacksUnavailable
         state.currentStack?.unsubmittedCount?.takeIf { it > 0 }?.let { return Banner.Unsubmitted(it) }
+        state.currentStack?.draftPrNumbers?.takeIf { it.isNotEmpty() }?.let { return Banner.DraftsBlocking(it) }
         if (state.fallbackMode) return Banner.FallbackMode
         return null
     }

@@ -1,0 +1,15 @@
+{
+  "data": {
+    "repository": {
+      "pr101": { "number": 101, "isDraft": true, "reviewDecision": null, "mergeable": "MERGEABLE",
+        "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "SUCCESS" } } } ] } },
+      "pr102": { "number": 102, "isDraft": false, "reviewDecision": "REVIEW_REQUIRED", "mergeable": "MERGEABLE",
+        "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "PENDING" } } } ] } },
+      "pr103": { "number": 103, "isDraft": false, "reviewDecision": "APPROVED", "mergeable": "CONFLICTING",
+        "commits": { "nodes": [ { "commit": { "statusCheckRollup": { "state": "FAILURE" } } } ] } },
+      "pr104": { "number": 104, "isDraft": false, "reviewDecision": "APPROVED", "mergeable": "MERGEABLE",
+        "commits": { "nodes": [ { "commit": { "statusCheckRollup": null } } ] } },
+      "pr999": null
+    }
+  }
+}

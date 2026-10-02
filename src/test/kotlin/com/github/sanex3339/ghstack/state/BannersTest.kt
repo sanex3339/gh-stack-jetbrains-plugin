@@ -47,5 +47,14 @@ class BannersTest {
         assertEquals(Banner.Unsubmitted(1), Banners.of(withNew))
         assertEquals(Banner.StacksUnavailable, Banners.of(withNew.copy(stacksUnavailable = true)))
         assertEquals(Banner.FallbackMode, Banners.of(base.copy(fallbackMode = true)))
+        val withDraft = base.copy(
+            stacks = listOf(
+                com.github.sanex3339.ghstack.model.MergeReadiness.annotate(
+                    stack("main", "auth" to OPEN, "api" to OPEN, current = "api"),
+                    mapOf(100 to com.github.sanex3339.ghstack.model.PrDetails(100, true, com.github.sanex3339.ghstack.model.ReviewState.NONE, com.github.sanex3339.ghstack.model.ChecksState.NONE, false)),
+                ),
+            ),
+        )
+        assertEquals(Banner.DraftsBlocking(listOf(100)), Banners.of(withDraft))
     }
 }

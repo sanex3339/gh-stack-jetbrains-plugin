@@ -5,6 +5,9 @@ import com.github.sanex3339.ghstack.cli.CommandRequest
 import com.github.sanex3339.ghstack.cli.GhStatusChecker
 import com.github.sanex3339.ghstack.model.GitDirStateParser
 import com.github.sanex3339.ghstack.model.GitHead
+import com.github.sanex3339.ghstack.model.MergeReadiness
+import com.github.sanex3339.ghstack.model.PrDetails
+import com.github.sanex3339.ghstack.model.PrDetailsQuery
 import com.github.sanex3339.ghstack.model.OperationState
 import com.github.sanex3339.ghstack.model.StackFileParser
 import com.github.sanex3339.ghstack.model.StackFileResult
@@ -53,6 +56,7 @@ fun interface StackStateListener {
 class StackStateService(private val project: Project, private val scope: CoroutineScope) : Disposable {
     private val states = ConcurrentHashMap<Path, RepoState>()
     private val overlays = ConcurrentHashMap<Path, ViewSnapshot>()
+    private val prDetails = ConcurrentHashMap<Path, Map<Int, PrDetails>>()
     private val fileStamps = ConcurrentHashMap<Path, List<Long>>()
     private val liveRequests = ConcurrentHashMap<Path, Channel<Unit>>()
     private val runner = IdeEnvironment.runner()
@@ -157,8 +161,18 @@ class StackStateService(private val project: Project, private val scope: Corouti
         val overlay = if (status is CliStatus.Ready && shouldRunView(files.stackFile, currentBranch)) runView(status, root) else null
         if (overlay != null) overlays[root] = overlay else overlays.remove(root)
         fileStamps[root] = stamps(gitDir)
-        states[root] = compose(previous.copy(cliStatus = status, gitDir = gitDir), files, overlay, currentBranch)
+        val base = previous.copy(cliStatus = status, gitDir = gitDir)
+        val composed = compose(base, files, overlay, currentBranch)
+        states[root] = composed
         publish(root)
+        // Draft / review / checks for the current stack: one GraphQL request, also slow-ish, so it comes last.
+        if (status is CliStatus.Ready) {
+            fetchPrDetails(status, root, composed)?.let { details ->
+                prDetails[root] = details
+                states[root] = compose(base, files, overlay, currentBranch)
+                publish(root)
+            }
+        }
     }
 
     private fun pollFiles(root: Path) {
@@ -183,8 +197,9 @@ class StackStateService(private val project: Project, private val scope: Corouti
 
     private fun compose(base: RepoState, files: FileSnapshot, overlay: ViewSnapshot?, currentBranch: String?): RepoState {
         val parsed = files.stackFile as? StackFileResult.Parsed
+        val details = prDetails[base.root].orEmpty()
         return base.copy(
-            stacks = StateMerger.merge(parsed?.file, overlay, currentBranch),
+            stacks = StateMerger.merge(parsed?.file, overlay, currentBranch).map { if (it.isCurrent) MergeReadiness.annotate(it, details) else it },
             currentBranch = currentBranch,
             repository = parsed?.file?.repository,
             fallbackMode = parsed == null,
@@ -203,6 +218,16 @@ class StackStateService(private val project: Project, private val scope: Corouti
     private fun runView(status: CliStatus.Ready, root: Path): ViewSnapshot? {
         val result = runner.run(CommandRequest(root, listOf(status.ghPath, "stack", "view", "--json"), VIEW_TIMEOUT))
         return if (result.ok) ViewJsonParser.parse(result.stdout) else null
+    }
+
+    /** `null` when there is nothing to ask or GitHub didn't answer (the previous details are kept). */
+    private fun fetchPrDetails(status: CliStatus.Ready, root: Path, state: RepoState): Map<Int, PrDetails>? {
+        val repository = state.repository ?: return null
+        val numbers = state.currentStack?.activeBranches?.mapNotNull { it.pr?.number }.orEmpty()
+        if (numbers.isEmpty()) return emptyMap()
+        val query = PrDetailsQuery.build(repository, numbers)
+        val result = runner.run(CommandRequest(root, listOf(status.ghPath, "api", "--hostname", repository.host, "graphql", "-f", "query=$query"), VIEW_TIMEOUT))
+        return if (result.ok) PrDetailsQuery.parse(result.stdout) else null
     }
 
     private fun resolveGitDir(root: Path, status: CliStatus): Path {

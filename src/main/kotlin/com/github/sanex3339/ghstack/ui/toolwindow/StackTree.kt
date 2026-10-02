@@ -3,6 +3,7 @@ package com.github.sanex3339.ghstack.ui.toolwindow
 import com.github.sanex3339.ghstack.model.BranchStatus
 import com.github.sanex3339.ghstack.model.BranchUi
 import com.github.sanex3339.ghstack.model.StackUi
+import com.github.sanex3339.ghstack.state.BranchBadges
 import com.github.sanex3339.ghstack.ui.GhStackIcons
 import com.github.sanex3339.ghstack.ui.StatusGlyphs
 import com.intellij.ui.ColoredTreeCellRenderer
@@ -54,7 +55,7 @@ class StackTreeRenderer : ColoredTreeCellRenderer() {
                     },
                 )
                 branch.pr?.let { append("   #${it.number}", SimpleTextAttributes.GRAYED_ATTRIBUTES) }
-                append("   ${StatusGlyphs.label(branch.status)}", SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES)
+                BranchBadges.of(branch).forEach { append("   ${it.text}", StatusGlyphs.badgeAttributes(it.tone)) }
             }
             is TrunkNode -> append("└ ${node.stack.trunk}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
             else -> Unit
