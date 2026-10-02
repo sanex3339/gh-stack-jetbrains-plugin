@@ -9,6 +9,7 @@ import com.github.sanex3339.ghstack.model.StackFile
 import com.github.sanex3339.ghstack.model.StackFileParser
 import com.github.sanex3339.ghstack.model.StackFileResult
 import com.github.sanex3339.ghstack.ops.StackFileStore
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeText
@@ -57,6 +58,15 @@ class GitSandbox private constructor(val root: Path) {
 
         fun ghStackAvailable(): Boolean =
             GH != null && CommandRunner().run(CommandRequest(Path.of(System.getProperty("java.io.tmpdir")), listOf(GH, "stack", "--version"))).ok
+
+        /** Skips the test without `gh stack`, unless GHSTACK_REQUIRE_CLI=true (CI), where a missing CLI is a failure. */
+        fun assumeGhStack() {
+            if (System.getenv("GHSTACK_REQUIRE_CLI") == "true") {
+                check(ghStackAvailable()) { "gh stack is required (GHSTACK_REQUIRE_CLI=true) but isn't installed" }
+            } else {
+                assumeTrue(ghStackAvailable(), "gh stack is not installed")
+            }
+        }
 
         fun create(): GitSandbox {
             val sandbox = GitSandbox(Files.createTempDirectory("ghstack-it"))

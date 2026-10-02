@@ -49,4 +49,14 @@ Two-stroke chords: prefix `⌘⌥K` (macOS) or `Ctrl+Alt+X` (Windows/Linux), the
 Add `-PideLocalPath=/path/to/WebStorm.app` to use an installed IDE instead of downloading one, and
 `-PrunIdeProject=/path/to/repo` to open a project in the sandbox.
 
+## CI
+
+- `.github/workflows/ci.yml` runs on pushes to `main`, pull requests, and manually. It installs
+  `gh stack` v0.1.1, then runs `./gradlew test buildPlugin`. With `GHSTACK_REQUIRE_CLI=true`, the CLI
+  integration tests fail instead of skipping when the extension is missing. The plugin zip is uploaded
+  as an artifact.
+- `.github/workflows/verify.yml` runs `./gradlew verifyPlugin` against JetBrains' recommended
+  WebStorm releases. It runs on pushes to `main`, weekly (Mondays 06:00 UTC), and manually.
+  Locally, `./gradlew verifyPlugin -PideLocalPath=…` checks against your installed IDE instead.
+
 `scripts/dump-keystrokes.py` regenerates the bundled-shortcut fixture used by `KeymapConflictTest`.

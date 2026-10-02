@@ -52,7 +52,9 @@ intellijPlatform {
     }
     pluginVerification {
         ides {
-            recommended()
+            // CI verifies against JetBrains' recommended releases; locally, -PideLocalPath avoids the downloads.
+            val ideLocalPath = providers.gradleProperty("ideLocalPath").orNull
+            if (ideLocalPath.isNullOrBlank()) recommended() else local(ideLocalPath)
         }
     }
 }
