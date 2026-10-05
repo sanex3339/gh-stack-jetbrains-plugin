@@ -29,9 +29,9 @@ data class PrDetails(
  * One GraphQL request for all of a stack's pull requests (`gh api graphql -f query=…`), plus one request per
  * further page of checks for pull requests with more than 100.
  *
- * The checks state is worked out from the latest run of each check rather than taken from GitHub's
- * `statusCheckRollup.state`: that summary counts runs a later run replaced and cancelled runs, so it says FAILURE
- * while the pull request page shows no failing check. Like the page, a cancelled check only counts when it's required.
+ * The checks state is worked out from the current runs rather than taken from GitHub's `statusCheckRollup.state`:
+ * that summary counts runs a newer run replaced and cancelled runs, so it says FAILURE while the pull request page
+ * shows no failing check. Like the page, a cancelled check only counts when it's required.
  */
 object PrDetailsQuery {
     private const val PAGE_SIZE = 100
@@ -39,7 +39,7 @@ object PrDetailsQuery {
 
     private fun contextFields(number: Int) = "pageInfo { hasNextPage endCursor } nodes { __typename" +
         " ... on CheckRun { databaseId name conclusion status completedAt isRequired(pullRequestNumber: $number)" +
-        " checkSuite { workflowRun { event workflow { name } } } }" +
+        " checkSuite { workflowRun { databaseId event workflow { name } } } }" +
         " ... on StatusContext { context state createdAt isRequired(pullRequestNumber: $number) } }"
 
     fun build(repo: RepoCoordinates, numbers: List<Int>): String = buildString {
@@ -155,14 +155,25 @@ object PrDetailsQuery {
     }
 
     /**
-     * The latest run of each check, in the order GitHub listed them. A check is a job name within one workflow and
-     * triggering event. Latest means completed last, as in GitHub's checks API; a run still going is newer than any
-     * finished one. Creation order doesn't work: a job waiting on another job gets its check run only when its workflow
-     * run is cancelled, after a newer run may already have skipped it.
+     * The checks that count, in the order GitHub listed them. A check is a job name within one workflow and
+     * triggering event; of its runs, the one that completed last counts, and one still going is newer than any
+     * finished one. When a workflow ran more than once for the commit, its cancelled checks don't count: a concurrency
+     * group cancelled them in favour of another run, which may be older (a newer run cancelled before it started) or
+     * not have reached that job yet (result jobs waiting on the tests).
      */
     private fun latestRuns(contexts: List<JsonObject>): List<JsonObject> {
+        val liveRuns = HashMap<List<String?>, MutableSet<Long>>()
+        contexts.filter { it.string("conclusion") != "CANCELLED" }.forEach { context ->
+            val run = context.workflowRunId() ?: return@forEach
+            liveRuns.getOrPut(context.workflowKey()) { mutableSetOf() } += run
+        }
+        fun replaced(context: JsonObject): Boolean {
+            if (context.string("conclusion") != "CANCELLED") return false
+            val run = context.workflowRunId() ?: return false
+            return liveRuns[context.workflowKey()].orEmpty().any { it != run }
+        }
         val newest = LinkedHashMap<List<String?>, JsonObject>()
-        contexts.forEach { context ->
+        contexts.filterNot(::replaced).forEach { context ->
             val key = context.checkKey()
             val current = newest[key]
             if (current == null || context.isNewerThan(current)) newest[key] = context
@@ -170,10 +181,15 @@ object PrDetailsQuery {
         return newest.values.toList()
     }
 
-    private fun JsonObject.checkKey(): List<String?> {
+    private fun JsonObject.checkKey(): List<String?> = listOf(string("__typename")) + workflowKey() + checkName()
+
+    private fun JsonObject.workflowKey(): List<String?> {
         val run = obj("checkSuite")?.obj("workflowRun")
-        return listOf(string("__typename"), run?.obj("workflow")?.string("name"), run?.string("event"), checkName())
+        return listOf(run?.obj("workflow")?.string("name"), run?.string("event"))
     }
+
+    private fun JsonObject.workflowRunId(): Long? =
+        (obj("checkSuite")?.obj("workflowRun")?.get("databaseId") as? JsonPrimitive)?.longOrNull
 
     private fun JsonObject.isNewerThan(other: JsonObject): Boolean {
         val done = finishedAt()

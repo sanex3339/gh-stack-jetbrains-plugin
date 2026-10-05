@@ -32,8 +32,8 @@
       <li>The tool window and the stack switcher show only the checked-out branch's stack.</li>
       <li>Checking out a branch that no local stack tracks pulls its stack from GitHub when its pull request is in one
           (a colleague's stack, or yours from another machine). Can be turned off in Settings | Tools | Stacked PRs.</li>
-      <li>Review and checks get a label each, and checks follow the pull request page: runs a later run replaced and
-          cancelled optional checks no longer show as failing.</li>
+      <li>Review and checks get a label each, and checks follow the pull request page: checks cancelled because another
+          run of their workflow replaced them, and cancelled optional checks, no longer show as failing.</li>
     </ul>
     <p><b>0.2.0</b></p>
     <ul>

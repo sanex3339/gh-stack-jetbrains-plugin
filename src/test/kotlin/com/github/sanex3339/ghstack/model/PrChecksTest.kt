@@ -39,19 +39,48 @@ class PrChecksTest {
     }
 
     @Test
-    fun `the run that finished last wins, whatever order the runs were created in`() {
-        // A job that waits on another job gets its check run only when its workflow run is cancelled, so ids and
-        // run numbers can't order them; GitHub's own "latest" is the run that completed last.
+    fun `checks cancelled because another run of the workflow replaced them don't count, even before that run reaches them`() {
+        // The older run's required result job was cancelled; the newer run is still testing and creates its result job later.
         val json = response(
             rollup = "FAILURE",
             contexts = listOf(
-                run(id = 50, runId = 1, workflow = "Deploy", name = "preview", conclusion = "FAILURE", completed = "2026-10-02T20:20:27Z"),
-                run(id = 40, runId = 2, workflow = "Deploy", name = "preview", conclusion = "SUCCESS", completed = "2026-10-02T20:20:28Z"),
-                run(id = 60, runId = 4, workflow = "Tests", name = "result", conclusion = "FAILURE", completed = "2026-10-02T20:21:59Z"),
-                run(id = 55, runId = 3, workflow = "Tests", name = "result", conclusion = "SUCCESS", completed = "2026-10-02T20:22:38Z"),
+                run(id = 50, runId = 1, workflow = "Run tests", name = "app-db-tests-result", conclusion = "CANCELLED", required = true),
+                run(id = 51, runId = 1, workflow = "Run tests", name = "unit", conclusion = "CANCELLED"),
+                run(id = 60, runId = 2, workflow = "Run tests", name = "unit", conclusion = null, status = "IN_PROGRESS"),
+            ),
+        )
+        val details = PrDetailsQuery.parse(json).getValue(7)
+        assertEquals(ChecksState.PENDING, details.checks)
+        assertEquals(emptyList<String>(), details.failingChecks)
+        assertEquals(listOf("unit"), details.pendingChecks)
+    }
+
+    @Test
+    fun `a newer run cancelled before it started doesn't hide the older run's result`() {
+        val json = response(
+            rollup = "FAILURE",
+            contexts = listOf(
+                run(id = 50, runId = 1, workflow = "Backport", name = "decide", conclusion = "SUCCESS", completed = "2026-10-05T13:41:07Z", required = true),
+                run(id = 40, runId = 2, workflow = "Backport", name = "decide", conclusion = "CANCELLED", completed = "2026-10-05T13:40:31Z", required = true),
+                // Created when its run was cancelled, after the newer run had skipped it.
+                run(id = 70, runId = 3, workflow = "Deploy", name = "preview", conclusion = "CANCELLED", completed = "2026-10-02T20:20:27Z"),
+                run(id = 65, runId = 4, workflow = "Deploy", name = "preview", conclusion = "SKIPPED", completed = "2026-10-02T20:20:28Z"),
             ),
         )
         assertEquals(ChecksState.PASSING, PrDetailsQuery.parse(json).getValue(7).checks)
+    }
+
+    @Test
+    fun `a real failure in an older run still counts until a later run of the check finishes`() {
+        val json = response(
+            rollup = "FAILURE",
+            contexts = listOf(
+                run(id = 10, runId = 1, workflow = "Tests", name = "unit", conclusion = "FAILURE"),
+                run(id = 11, runId = 1, workflow = "Tests", name = "lint", conclusion = "SUCCESS"),
+                run(id = 20, runId = 2, workflow = "Tests", name = "lint", conclusion = "SUCCESS"),
+            ),
+        )
+        assertEquals(listOf("unit"), PrDetailsQuery.parse(json).getValue(7).failingChecks)
     }
 
     @Test
