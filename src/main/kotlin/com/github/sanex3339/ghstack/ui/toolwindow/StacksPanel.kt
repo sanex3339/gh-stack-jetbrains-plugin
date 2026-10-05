@@ -8,6 +8,7 @@ import com.github.sanex3339.ghstack.model.StackUi
 import com.github.sanex3339.ghstack.state.BadgeLink
 import com.github.sanex3339.ghstack.state.Banners
 import com.github.sanex3339.ghstack.state.RepoState
+import com.github.sanex3339.ghstack.ui.ChecksPopup
 import com.github.sanex3339.ghstack.ui.GhStackCommands
 import com.github.sanex3339.ghstack.ui.GhStackDataKeys
 import com.github.sanex3339.ghstack.ui.SelectedBranch
@@ -26,6 +27,7 @@ import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.TreeSpeedSearch
+import com.intellij.ui.awt.RelativePoint
 import com.intellij.ui.components.JBLoadingPanel
 import com.intellij.ui.treeStructure.Tree
 import java.awt.BorderLayout
@@ -125,6 +127,7 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
                 when (val link = linkAt(event)) {
                     is BadgeLink.Url -> GhStackCommands.openPr(link.url)
                     is BadgeLink.Branch -> select(link.name)
+                    is BadgeLink.Checks -> showChecks(event, link)
                     null -> return
                 }
                 event.consume()
@@ -193,6 +196,18 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
                 emptyText.appendSecondaryText("Check out stack…", SimpleTextAttributes.LINK_PLAIN_ATTRIBUTES) { GhStackCommands.checkoutStack(project) }
             }
         }
+    }
+
+    /** The checks box for the clicked branch; without details from GitHub yet, the checks page itself. */
+    private fun showChecks(event: MouseEvent, link: BadgeLink.Checks) {
+        val node = (tree.getPathForLocation(event.x, event.y)?.lastPathComponent as? DefaultMutableTreeNode)?.userObject as? BranchNode
+        val details = node?.branch?.details
+        val root = shownRoot
+        if (details == null || root == null) {
+            link.checksUrl?.let(GhStackCommands::openPr)
+            return
+        }
+        ChecksPopup.show(project, root, details, link.checksUrl, RelativePoint(event))
     }
 
     private fun stackNodes(): List<DefaultMutableTreeNode> =

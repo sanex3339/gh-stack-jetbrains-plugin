@@ -11,10 +11,11 @@ import com.github.sanex3339.ghstack.ide.OperationLog
 import com.github.sanex3339.ghstack.ide.OperationScope
 import com.github.sanex3339.ghstack.ide.StackStateService
 import com.github.sanex3339.ghstack.model.BranchStatus
+import com.github.sanex3339.ghstack.model.CheckRunInfo
 import com.github.sanex3339.ghstack.model.OperationState
+import com.github.sanex3339.ghstack.model.RemoteStackInfo
 import com.github.sanex3339.ghstack.model.RemoveMode
 import com.github.sanex3339.ghstack.model.StackUi
-import com.github.sanex3339.ghstack.model.RemoteStackInfo
 import com.github.sanex3339.ghstack.ops.InsertBranchWorkflow
 import com.github.sanex3339.ghstack.ops.MoveChangesWorkflow
 import com.github.sanex3339.ghstack.ops.MoveOutcome
@@ -68,6 +69,9 @@ enum class RebaseMode(val title: String, vararg val args: String) {
 
 /** Everything the UI can ask Stacked PRs to do. Entry points are called on the EDT. */
 object GhStackCommands {
+    /** GitHub queues re-run jobs within seconds; refresh once they show up rather than waiting for the minute poll. */
+    private const val RERUN_REFRESH_DELAY_MS = 5_000L
+
     private fun ops(project: Project) = GhStackOperations.getInstance(project)
 
     private fun state(project: Project): RepoState? = StackStateService.getInstance(project).activeState()
@@ -490,6 +494,22 @@ object GhStackCommands {
     fun layerDiff(project: Project, root: Path, stack: StackUi, branch: String) = LayerDiff.show(project, root, stack, branch)
 
     fun openPr(url: String) = BrowserUtil.browse(url)
+
+    /** `gh run rerun <run> --failed` for the workflow run a failing check belongs to (from the checks box). */
+    fun rerunFailedJobs(project: Project, root: Path, check: CheckRunInfo) {
+        val runId = check.runId ?: return
+        val workflow = check.workflow ?: "workflow"
+        ops(project).run("Re-run failed jobs of $workflow", root, progressText = "Re-running $workflow…") {
+            val repo = state.repository?.let { listOf("--repo", "${it.host}/${it.owner}/${it.name}") }.orEmpty()
+            val result = cli.gh("run", "rerun", runId.toString(), "--failed", *repo.toTypedArray())
+            if (result.ok) {
+                success("Re-running the failed jobs of $workflow (run $runId); the checks label follows them")
+                StackStateService.getInstance(project).requestLiveLater(root, RERUN_REFRESH_DELAY_MS)
+            } else {
+                error("Re-running the failed jobs of $workflow didn't work", result.summary())
+            }
+        }
+    }
 
     fun copyPrUrl(url: String) = CopyPasteManager.getInstance().setContents(StringSelection(url))
 

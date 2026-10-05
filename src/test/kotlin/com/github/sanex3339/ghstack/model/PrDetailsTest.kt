@@ -28,11 +28,13 @@ class PrDetailsTest {
     fun `parses draft, review, checks and conflicts`() {
         assertEquals(PrDetails(101, isDraft = true, review = ReviewState.NONE, checks = ChecksState.PASSING, conflicting = false, title = "Add auth"), details[101])
         assertEquals(PrDetails(102, isDraft = false, review = ReviewState.REVIEW_REQUIRED, checks = ChecksState.PENDING, conflicting = false), details[102])
+        val ui = details.getValue(103)
         assertEquals(
-            PrDetails(103, isDraft = false, review = ReviewState.APPROVED, checks = ChecksState.FAILING, conflicting = true, title = "Add UI",
-                failingChecks = listOf("build", "ci/legacy"), pendingChecks = listOf("e2e")),
-            details[103],
+            PrDetails(103, isDraft = false, review = ReviewState.APPROVED, checks = ChecksState.FAILING, conflicting = true, title = "Add UI"),
+            ui.copy(checkRuns = emptyList()),
         )
+        assertEquals(listOf("build", "ci/legacy"), ui.failingChecks)
+        assertEquals(listOf("e2e"), ui.pendingChecks)
         assertEquals(ChecksState.NONE, details[104]!!.checks)
         assertEquals(setOf(101, 102, 103, 104), details.keys)
         assertEquals(emptyMap<Int, PrDetails>(), PrDetailsQuery.parse("not json"))

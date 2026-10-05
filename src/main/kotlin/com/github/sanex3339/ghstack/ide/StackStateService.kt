@@ -130,6 +130,14 @@ class StackStateService(private val project: Project, private val scope: Corouti
 
     fun requestAllLive() = roots().forEach(::requestLive)
 
+    /** A refresh after [delayMs], for changes GitHub needs a moment to show (e.g. re-run checks getting queued). */
+    fun requestLiveLater(root: Path, delayMs: Long) {
+        scope.launch {
+            delay(delayMs)
+            requestLive(root)
+        }
+    }
+
     /** Refreshes on the calling (background) thread and returns when done; used by the MCP tools. */
     fun refreshNow(root: Path) = refreshLive(root)
 

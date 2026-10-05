@@ -19,6 +19,8 @@ the plugin only reads its state files.
   branch to switch to it; right-click for insert, remove, layer diff, rebase-from-here, open PR.
 - **Stack switcher**: the `⧉ api 2/4` dropdown next to the Git branch widget, the status bar widget,
   or `⌘⌥K L` / `Ctrl+Alt+X L`. Lists the current stack's branches and its trunk; click to switch.
+- **Checks**: click a branch's checks label for its failing, running and cancelled checks, each linking
+  to its job on GitHub, with **Re-run failed** once the workflow run has finished.
 - **Stacks from GitHub**: check out a branch that no local stack tracks (a colleague's stack, or yours
   from another machine) and, if its pull request is in a stack on GitHub, that stack is pulled in with
   `gh stack checkout`. Turn it off in Settings ▸ Tools ▸ Stacked PRs.

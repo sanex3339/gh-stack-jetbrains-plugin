@@ -27,6 +27,12 @@
     <p><i>Not affiliated with or endorsed by GitHub. GitHub is a trademark of GitHub, Inc.</i></p>
     ]]></description>
     <change-notes><![CDATA[
+    <p><b>0.4.0</b></p>
+    <ul>
+      <li>Clicking a checks label lists the failing, running and cancelled checks, like the pull request's checks box;
+          each one opens its job on GitHub.</li>
+      <li>Re-run failed: re-runs the failed jobs of a check's workflow run once that run has finished.</li>
+    </ul>
     <p><b>0.3.0</b></p>
     <ul>
       <li>The tool window and the stack switcher show only the checked-out branch's stack.</li>

@@ -84,6 +84,36 @@ class PrChecksTest {
     }
 
     @Test
+    fun `keeps each counted check with its workflow, outcome, job link and whether it's required`() {
+        val json = response(
+            rollup = "FAILURE",
+            contexts = listOf(
+                run(id = 10, runId = 1, workflow = "Run tests", name = "sdk-tests / SDK component tests", conclusion = "FAILURE", required = true, runDone = false),
+                run(id = 11, runId = 1, workflow = "Run tests", name = "e2e", conclusion = null, status = "IN_PROGRESS", runDone = false),
+                run(id = 12, runId = 1, workflow = "Run tests", name = "lint", conclusion = "SUCCESS", runDone = false),
+                run(id = 13, runId = 1, workflow = "Run tests", name = "docs", conclusion = "SKIPPED", runDone = false),
+                run(id = 30, runId = 3, workflow = "Lint", name = "format", conclusion = "FAILURE"),
+                run(id = 20, runId = 2, workflow = "Run tests", name = "old", conclusion = "CANCELLED"),
+                """{"__typename":"StatusContext","context":"ci/legacy","state":"ERROR","targetUrl":"https://ci.example.com/7","isRequired":false}""",
+            ),
+        )
+        val checks = PrDetailsQuery.parse(json).getValue(7).checkRuns
+        assertEquals(
+            listOf(
+                CheckRunInfo("sdk-tests / SDK component tests", "Run tests", "pull_request", CheckOutcome.FAILING, "https://github.com/octo/app/actions/runs/1/job/10", required = true, runId = 1),
+                CheckRunInfo("e2e", "Run tests", "pull_request", CheckOutcome.RUNNING, "https://github.com/octo/app/actions/runs/1/job/11", required = false, runId = 1),
+                CheckRunInfo("lint", "Run tests", "pull_request", CheckOutcome.PASSED, "https://github.com/octo/app/actions/runs/1/job/12", required = false, runId = 1),
+                CheckRunInfo("docs", "Run tests", "pull_request", CheckOutcome.SKIPPED, "https://github.com/octo/app/actions/runs/1/job/13", required = false, runId = 1),
+                CheckRunInfo("format", "Lint", "pull_request", CheckOutcome.FAILING, "https://github.com/octo/app/actions/runs/3/job/30", required = false, runId = 3, runFinished = true),
+                CheckRunInfo("ci/legacy", null, null, CheckOutcome.FAILING, "https://ci.example.com/7", required = false),
+            ),
+            checks,
+            "the cancelled run another run replaced isn't listed",
+        )
+        assertEquals("Run tests / sdk-tests / SDK component tests", checks.first().title)
+    }
+
+    @Test
     fun `a re-run replaces the earlier attempt`() {
         val json = response(
             rollup = "FAILURE",
@@ -186,9 +216,11 @@ class PrChecksTest {
         runId: Long = id,
         completed: String? = if (status == "COMPLETED") "2026-10-02T20:%02d:%02dZ".format(id / 60, id % 60) else null,
         required: Boolean = false,
+        runDone: Boolean = true,
     ) = """{"__typename":"CheckRun","databaseId":$id,"name":"$name","status":"$status","conclusion":${conclusion?.let { "\"$it\"" } ?: "null"},""" +
         """"completedAt":${completed?.let { "\"$it\"" } ?: "null"},"isRequired":$required,""" +
-        """"checkSuite":{"workflowRun":{"databaseId":$runId,"event":"$event","workflow":{"name":"$workflow"}}}}"""
+        """"detailsUrl":"https://github.com/octo/app/actions/runs/$runId/job/$id",""" +
+        """"checkSuite":{"status":"${if (runDone) "COMPLETED" else "IN_PROGRESS"}","workflowRun":{"databaseId":$runId,"event":"$event","workflow":{"name":"$workflow"}}}}"""
 
     private fun contexts(contexts: List<String>, nextCursor: String?) =
         """{"pageInfo":{"hasNextPage":${nextCursor != null},"endCursor":${nextCursor?.let { "\"$it\"" } ?: "null"}},"nodes":[${contexts.joinToString(",")}]}"""

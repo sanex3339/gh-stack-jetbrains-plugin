@@ -12,6 +12,9 @@ enum class Tone { POSITIVE, NEUTRAL, WARNING, NEGATIVE }
 sealed interface BadgeLink {
     data class Url(val url: String) : BadgeLink
     data class Branch(val name: String) : BadgeLink
+
+    /** The branch's checks list; [checksUrl] is the pull request's checks page. */
+    data class Checks(val checksUrl: String?) : BadgeLink
 }
 
 /** [compact] is used where space is tight (the tree); [text] spells it out (menus, tooltips). */
@@ -40,7 +43,7 @@ object BranchBadges {
         val url = branch.pr?.url
         val prUrl = url?.let(BadgeLink::Url)
         val details = branch.details ?: return listOf(Badge("open", Tone.NEUTRAL, link = prUrl))
-        val checksUrl = url?.let { BadgeLink.Url("$it/checks") }
+        val checksUrl = BadgeLink.Checks(url?.let { "$it/checks" })
         val badges = buildList {
             if (details.isDraft) add(Badge("draft", Tone.NEUTRAL, link = prUrl))
             if (details.conflicting) add(Badge("conflicts", Tone.NEGATIVE, link = prUrl))

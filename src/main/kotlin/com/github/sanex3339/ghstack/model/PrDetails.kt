@@ -13,7 +13,26 @@ enum class ChecksState { PASSING, FAILING, PENDING, NONE }
 
 enum class ReviewState { APPROVED, CHANGES_REQUESTED, REVIEW_REQUIRED, NONE }
 
-/** What GitHub knows about an open pull request's mergeability. */
+enum class CheckOutcome { FAILING, RUNNING, CANCELLED, PASSED, SKIPPED }
+
+/**
+ * One check as the pull request page lists it (`Run tests / sdk-tests / SDK component tests`). [runId] is the
+ * GitHub Actions workflow run it belongs to, [runFinished] whether that whole run is done (failed jobs can be re-run).
+ */
+data class CheckRunInfo(
+    val name: String,
+    val workflow: String?,
+    val event: String?,
+    val outcome: CheckOutcome,
+    val url: String?,
+    val required: Boolean,
+    val runId: Long? = null,
+    val runFinished: Boolean = false,
+) {
+    val title: String get() = listOfNotNull(workflow, name).joinToString(" / ")
+}
+
+/** What GitHub knows about an open pull request's mergeability. [checkRuns] are the checks that count. */
 data class PrDetails(
     val number: Int,
     val isDraft: Boolean,
@@ -21,9 +40,12 @@ data class PrDetails(
     val checks: ChecksState,
     val conflicting: Boolean,
     val title: String = "",
-    val failingChecks: List<String> = emptyList(),
-    val pendingChecks: List<String> = emptyList(),
-)
+    val checkRuns: List<CheckRunInfo> = emptyList(),
+) {
+    val failingChecks: List<String> get() = checkRuns.filter { it.outcome == CheckOutcome.FAILING }.map { it.name }.distinct()
+
+    val pendingChecks: List<String> get() = checkRuns.filter { it.outcome == CheckOutcome.RUNNING }.map { it.name }.distinct()
+}
 
 /**
  * One GraphQL request for all of a stack's pull requests (`gh api graphql -f query=…`), plus one request per
@@ -38,9 +60,9 @@ object PrDetailsQuery {
     private const val MAX_EXTRA_PAGES = 10
 
     private fun contextFields(number: Int) = "pageInfo { hasNextPage endCursor } nodes { __typename" +
-        " ... on CheckRun { databaseId name conclusion status completedAt isRequired(pullRequestNumber: $number)" +
-        " checkSuite { workflowRun { databaseId event workflow { name } } } }" +
-        " ... on StatusContext { context state createdAt isRequired(pullRequestNumber: $number) } }"
+        " ... on CheckRun { databaseId name conclusion status completedAt detailsUrl isRequired(pullRequestNumber: $number)" +
+        " checkSuite { status workflowRun { databaseId event workflow { name } } } }" +
+        " ... on StatusContext { context state createdAt targetUrl isRequired(pullRequestNumber: $number) } }"
 
     fun build(repo: RepoCoordinates, numbers: List<Int>): String = buildString {
         append(repositoryHeader(repo))
@@ -119,9 +141,9 @@ object PrDetailsQuery {
     }
 
     private fun RawPr.toDetails(): PrDetails {
-        val latest = latestRuns(contexts)
-        val failing = latest.filter { it.isFailingCheck() }
-        val pending = latest.filter { it.isPendingCheck() }
+        val latest = latestRuns(contexts).map { it.toCheckRun() }
+        val failing = latest.filter { it.outcome == CheckOutcome.FAILING }
+        val pending = latest.filter { it.outcome == CheckOutcome.RUNNING }
         // Without every page the newest runs aren't known, so GitHub's own summary is the better guess.
         val complete = nextCursor == null
         val checks = when {
@@ -142,8 +164,28 @@ object PrDetailsQuery {
             checks = checks,
             conflicting = json.string("mergeable") == "CONFLICTING",
             title = json.string("title").orEmpty(),
-            failingChecks = failing.map { it.checkName() }.distinct(),
-            pendingChecks = pending.map { it.checkName() }.distinct(),
+            checkRuns = latest,
+        )
+    }
+
+    private fun JsonObject.toCheckRun(): CheckRunInfo {
+        val suite = obj("checkSuite")
+        val run = suite?.obj("workflowRun")
+        return CheckRunInfo(
+            name = checkName(),
+            workflow = run?.obj("workflow")?.string("name"),
+            event = run?.string("event"),
+            outcome = when {
+                isFailingCheck() -> CheckOutcome.FAILING
+                isPendingCheck() -> CheckOutcome.RUNNING
+                string("conclusion") == "CANCELLED" -> CheckOutcome.CANCELLED
+                string("conclusion") in setOf("SKIPPED", "STALE") -> CheckOutcome.SKIPPED
+                else -> CheckOutcome.PASSED
+            },
+            url = string("detailsUrl") ?: string("targetUrl"),
+            required = (this["isRequired"] as? JsonPrimitive)?.booleanOrNull == true,
+            runId = workflowRunId(),
+            runFinished = suite?.string("status") == "COMPLETED",
         )
     }
 

@@ -2,6 +2,8 @@ package com.github.sanex3339.ghstack.state
 
 import com.github.sanex3339.ghstack.model.BranchStatus
 import com.github.sanex3339.ghstack.model.BranchUi
+import com.github.sanex3339.ghstack.model.CheckOutcome
+import com.github.sanex3339.ghstack.model.CheckRunInfo
 import com.github.sanex3339.ghstack.model.ChecksState
 import com.github.sanex3339.ghstack.model.MergeBlocker
 import com.github.sanex3339.ghstack.model.PrDetails
@@ -61,12 +63,13 @@ class BranchBadgesTest {
 
     @Test
     fun `failing checks link to the checks page and are named in the tooltip`() {
-        val failing = open(clean.copy(checks = ChecksState.FAILING, failingChecks = listOf("build", "test"), title = "Add <api>"), MergeBlocker.CHECKS_FAILING)
+        val runs = listOf("build", "test").map { CheckRunInfo(it, "CI", "pull_request", CheckOutcome.FAILING, url = null, required = false) }
+        val failing = open(clean.copy(checks = ChecksState.FAILING, checkRuns = runs, title = "Add <api>"), MergeBlocker.CHECKS_FAILING)
             .copy(pr = PrUi(7, "https://github.com/o/r/pull/7", PrState.OPEN))
         val stack = com.github.sanex3339.ghstack.model.StackUi(null, 1, "main", listOf(failing), isCurrent = true)
         val badge = BranchBadges.of(failing, stack).single()
         assertEquals("✗ checks", badge.compact)
-        assertEquals(BadgeLink.Url("https://github.com/o/r/pull/7/checks"), badge.link)
+        assertEquals(BadgeLink.Checks("https://github.com/o/r/pull/7/checks"), badge.link)
         val tooltip = BranchBadges.tooltip(failing, stack)
         assertTrue(tooltip.contains("<b>Add &lt;api&gt;</b>"), tooltip)
         assertTrue(tooltip.contains("✗ failing: build, test"), tooltip)
