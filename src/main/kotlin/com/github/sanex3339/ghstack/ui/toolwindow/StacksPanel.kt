@@ -35,8 +35,6 @@ import java.awt.event.MouseEvent
 import java.nio.file.Path
 import javax.swing.JPanel
 import javax.swing.ToolTipManager
-import javax.swing.event.TreeExpansionEvent
-import javax.swing.event.TreeExpansionListener
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 import javax.swing.tree.TreePath
@@ -48,7 +46,6 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
     private val tree = Tree(model)
     private val banner = BannerPanel(project)
     private val loadingPanel = JBLoadingPanel(BorderLayout(), parent)
-    private val expandedKeys = mutableSetOf<String>()
     private val treeArea = JPanel(BorderLayout())
     private val content = JPanel(BorderLayout())
     private val splitter = OnePixelSplitter(true, "StackedPRs.ActivityLog.Split", 0.7f)
@@ -72,15 +69,6 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
                 return true
             }
         }.installOn(tree)
-        tree.addTreeExpansionListener(object : TreeExpansionListener {
-            override fun treeExpanded(event: TreeExpansionEvent) {
-                stackKey(event.path)?.let { expandedKeys += it }
-            }
-
-            override fun treeCollapsed(event: TreeExpansionEvent) {
-                stackKey(event.path)?.let { expandedKeys -= it }
-            }
-        })
 
         val actionManager = ActionManager.getInstance()
         val toolbar = actionManager.createActionToolbar("GhStackToolWindow", actionManager.getAction("GhStack.ToolWindow.Toolbar") as ActionGroup, true)
@@ -155,7 +143,8 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
         banner.update(Banners.of(state))
         updateEmptyText(state)
         updateProgress(state)
-        val stacks = state?.stacks.orEmpty()
+        // Only the checked-out branch's stack; other stacks are reached through it (Check Out Stack…, checkout).
+        val stacks = listOfNotNull(state?.currentStack)
         if (stacks == shownStacks && state?.root == shownRoot) {
             tree.repaint()
             return
@@ -165,17 +154,14 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
         shownRoot = state?.root
 
         rootNode.removeAllChildren()
-        stacks.sortedByDescending { it.isCurrent }.forEach { stack ->
+        stacks.forEach { stack ->
             val stackNode = DefaultMutableTreeNode(StackNode(stack))
             stack.branches.asReversed().forEach { stackNode.add(DefaultMutableTreeNode(BranchNode(stack, it))) }
             stackNode.add(DefaultMutableTreeNode(TrunkNode(stack)))
             rootNode.add(stackNode)
         }
         model.reload()
-        stackNodes().forEach { node ->
-            val stack = (node.userObject as StackNode).stack
-            if (stack.isCurrent || stack.key in expandedKeys) tree.expandPath(TreePath(node.path))
-        }
+        stackNodes().forEach { tree.expandPath(TreePath(it.path)) }
         select(previouslySelected ?: state?.currentBranch)
     }
 
@@ -197,8 +183,11 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
             state == null -> emptyText.text = "No Git repository in this project"
             state.cliStatus == null -> emptyText.text = "Loading…"
             !state.ready -> emptyText.text = ""
+            state.currentBranch == null -> emptyText.text = "Not on a branch"
+            StackStateService.getInstance(project).remoteLookup(state.root) == state.currentBranch ->
+                emptyText.text = "Looking for ${state.currentBranch}'s stack on GitHub…"
             else -> {
-                emptyText.text = "No stacks yet"
+                emptyText.text = "${state.currentBranch} isn't part of a stack"
                 emptyText.appendSecondaryText("New stack…", SimpleTextAttributes.LINK_PLAIN_ATTRIBUTES) { GhStackCommands.newStack(project) }
                 emptyText.appendSecondaryText("    ", SimpleTextAttributes.REGULAR_ATTRIBUTES, null)
                 emptyText.appendSecondaryText("Check out stack…", SimpleTextAttributes.LINK_PLAIN_ATTRIBUTES) { GhStackCommands.checkoutStack(project) }
@@ -219,8 +208,6 @@ class StacksPanel(private val project: Project, parent: Disposable) : SimpleTool
     }
 
     private fun selectedNode(): StackTreeNode? = (tree.lastSelectedPathComponent as? DefaultMutableTreeNode)?.userObject as? StackTreeNode
-
-    private fun stackKey(path: TreePath): String? = ((path.lastPathComponent as? DefaultMutableTreeNode)?.userObject as? StackNode)?.stack?.key
 
     private fun speedSearchText(path: TreePath): String = when (val node = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject) {
         is BranchNode -> node.branch.name

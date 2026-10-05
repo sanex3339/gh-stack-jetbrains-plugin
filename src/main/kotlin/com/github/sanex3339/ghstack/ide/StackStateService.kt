@@ -2,6 +2,7 @@ package com.github.sanex3339.ghstack.ide
 
 import com.github.sanex3339.ghstack.cli.CliStatus
 import com.github.sanex3339.ghstack.cli.CommandRequest
+import com.github.sanex3339.ghstack.cli.ProcessStackCli
 import com.github.sanex3339.ghstack.cli.GhStatusChecker
 import com.github.sanex3339.ghstack.model.GitDirStateParser
 import com.github.sanex3339.ghstack.model.GitHead
@@ -14,8 +15,11 @@ import com.github.sanex3339.ghstack.model.StackFileResult
 import com.github.sanex3339.ghstack.model.StateMerger
 import com.github.sanex3339.ghstack.model.ViewJsonParser
 import com.github.sanex3339.ghstack.model.ViewSnapshot
+import com.github.sanex3339.ghstack.ops.RemoteStackDiscovery
 import com.github.sanex3339.ghstack.ops.StackFileStore
+import com.github.sanex3339.ghstack.settings.GhStackSettings
 import com.github.sanex3339.ghstack.state.RepoState
+import com.github.sanex3339.ghstack.state.StackAutoPull
 import com.github.sanex3339.ghstack.ui.GhStackCommands
 import com.intellij.dvcs.repo.VcsRepositoryManager
 import com.intellij.dvcs.repo.VcsRepositoryMappingListener
@@ -63,6 +67,10 @@ class StackStateService(private val project: Project, private val scope: Corouti
     private val liveRequests = ConcurrentHashMap<Path, Channel<Unit>>()
     private val autoContinued = ConcurrentHashMap<Path, Long>()
     private val lastLive = ConcurrentHashMap<Path, Long>()
+    /** Branches a local stack has tracked this session; auto-pull leaves them alone once they're untracked. */
+    private val trackedBranches = ConcurrentHashMap<Path, MutableSet<String>>()
+    private val remoteLookedUp = ConcurrentHashMap<Pair<Path, String>, Long>()
+    private val remoteLookups = ConcurrentHashMap<Path, String>()
     private val runner = IdeEnvironment.runner()
 
     @Volatile
@@ -130,6 +138,9 @@ class StackStateService(private val project: Project, private val scope: Corouti
         requestAllLive()
     }
 
+    /** The branch whose stack is being looked up on GitHub right now, if any. */
+    fun remoteLookup(root: Path): String? = remoteLookups[root]
+
     /** Re-renders listeners without re-reading anything (e.g. an operation started or finished). */
     fun notifyChanged(root: Path) = publish(root)
 
@@ -175,6 +186,7 @@ class StackStateService(private val project: Project, private val scope: Corouti
         lastLive[root] = System.currentTimeMillis()
         publish(root)
         maybeAutoContinue(composed)
+        maybeAutoPull(composed, files)
         // Draft / review / checks for the current stack: one GraphQL request, also slow-ish, so it comes last.
         if (status is CliStatus.Ready) {
             fetchPrDetails(status, root, composed)?.let { details ->
@@ -218,6 +230,9 @@ class StackStateService(private val project: Project, private val scope: Corouti
 
     private fun compose(base: RepoState, files: FileSnapshot, overlay: ViewSnapshot?, currentBranch: String?): RepoState {
         val parsed = files.stackFile as? StackFileResult.Parsed
+        parsed?.file?.stacks?.forEach { stack ->
+            trackedBranches.computeIfAbsent(base.root) { ConcurrentHashMap.newKeySet() }.addAll(stack.branches.map { it.name })
+        }
         val details = prDetails[base.root].orEmpty()
         return base.copy(
             stacks = StateMerger.merge(parsed?.file, overlay, currentBranch).map { if (it.isCurrent) MergeReadiness.annotate(it, details) else it },
@@ -228,6 +243,52 @@ class StackStateService(private val project: Project, private val scope: Corouti
             gitRebaseInProgress = files.gitRebaseInProgress,
             conflictedFiles = if (files.operation.isStopped()) conflictedFiles(base) else emptyList(),
         )
+    }
+
+    /**
+     * The checked-out branch isn't in a local stack: if its pull request is in a stack on GitHub, pull that stack
+     * (`gh stack checkout <branch>`), so the panel shows it like any other. Once per branch per [REMOTE_LOOKUP_TTL_MS].
+     */
+    private fun maybeAutoPull(state: RepoState, files: FileSnapshot) {
+        if (!GhStackSettings.getInstance().state.autoPullStacks) return
+        val status = state.cliStatus as? CliStatus.Ready ?: return
+        val gitDir = state.gitDir ?: return
+        val branch = StackAutoPull.branchToLookUp(
+            state,
+            stackFileReadable = files.stackFile is StackFileResult.Parsed,
+            busy = GhStackOperations.getInstance(project).isBusy(state.root),
+            trackedBefore = trackedBranches[state.root].orEmpty(),
+        ) ?: return
+        val root = state.root
+        val now = System.currentTimeMillis()
+        if (now - (remoteLookedUp[root to branch] ?: 0L) < REMOTE_LOOKUP_TTL_MS) return
+        if (remoteLookups.putIfAbsent(root, branch) != null) return
+        remoteLookedUp[root to branch] = now
+        publish(root)
+        scope.launch(Dispatchers.IO) {
+            var pulling = false
+            try {
+                val cli = ProcessStackCli(runner, status.ghPath, status.gitPath, root)
+                val stack = RemoteStackDiscovery(cli).find(branch, state.repository)
+                if (stack != null && readCurrentBranch(gitDir) == branch) {
+                    pulling = true
+                    ApplicationManager.getApplication().invokeLater({
+                        GhStackCommands.pullStack(project, root, branch, stack)
+                        remoteLookups.remove(root, branch)
+                        publish(root)
+                    }, project.disposed)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LOG.warn("Looking up the stack of $branch on GitHub failed", e)
+            } finally {
+                if (!pulling) {
+                    remoteLookups.remove(root, branch)
+                    publish(root)
+                }
+            }
+        }
     }
 
     private fun OperationState.isStopped() = this is OperationState.RebaseConflict || this is OperationState.RemovalStopped
@@ -318,6 +379,7 @@ class StackStateService(private val project: Project, private val scope: Corouti
         private const val INITIAL_DELAY_MS = 500L
         private const val POLL_INTERVAL_MS = 2_000L
         private const val PR_REFRESH_INTERVAL_MS = 60_000L
+        private const val REMOTE_LOOKUP_TTL_MS = 10 * 60_000L
         private const val DEBOUNCE_MS = 300L
         private val VIEW_TIMEOUT = 60.seconds
         private val GIT_DIR_TIMEOUT = 10.seconds

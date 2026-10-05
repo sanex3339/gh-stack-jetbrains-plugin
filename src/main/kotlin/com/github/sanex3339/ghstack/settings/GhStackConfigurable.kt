@@ -30,6 +30,11 @@ class GhStackConfigurable : BoundConfigurable("Stacked PRs") {
                 .bindItem({ settings.mergePreference ?: MergeMethodPreference.REMEMBER_LAST }, { settings.mergePreference = it ?: MergeMethodPreference.REMEMBER_LAST })
         }
         row {
+            checkBox("Pull a branch's stack from GitHub when checking out a branch no local stack tracks")
+                .bindSelected({ settings.autoPullStacks }, { settings.autoPullStacks = it })
+                .comment("For example a colleague's stack, or your own from another machine. Runs <code>gh stack checkout</code>.")
+        }
+        row {
             checkBox("Let AI agents use stack tools through the IDE's MCP server")
                 .bindSelected({ settings.mcpToolsEnabled }, { settings.mcpToolsEnabled = it })
                 .comment(

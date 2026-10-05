@@ -13,7 +13,6 @@ import com.github.sanex3339.ghstack.ui.GhStackIcons
 import com.github.sanex3339.ghstack.ui.StatusGlyphs
 import com.intellij.icons.AllIcons
 import com.intellij.ide.DataManager
-import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -37,30 +36,23 @@ import java.awt.Component
 import java.awt.Point
 import java.awt.event.MouseEvent
 
-/** The fast branch switcher: current stack's branches (top → bottom), other stacks as submenus, navigation. */
+/** The fast branch switcher: the current stack's branches (top → bottom) and its trunk, then stack actions. */
 object StackSwitcherPopup {
     fun create(project: Project, dataContext: DataContext): ListPopup {
         val state = StackStateService.getInstance(project).activeState()
         val group = DefaultActionGroup()
-        val stacks = state?.stacks.orEmpty()
-        stacks.firstOrNull { it.isCurrent }?.let { current ->
+        val actions = ActionManager.getInstance()
+        val current = state?.currentStack
+        if (current != null) {
             group.addSeparator("${current.title} · ${current.trunk}")
             current.branches.asReversed().forEach { group.add(SwitchToBranchAction(project, current, it)) }
             group.add(SwitchToTrunkAction(project, current))
+            group.addSeparator()
+            group.add(actions.getAction("GhStack.SwitcherFooter"))
+        } else {
+            listOf("GhStack.NewStack", "GhStack.CheckoutStack", "GhStack.ShowToolWindow").forEach { id -> actions.getAction(id)?.let(group::add) }
         }
-        val others = stacks.filter { !it.isCurrent }
-        if (others.isNotEmpty()) {
-            group.addSeparator("Other stacks")
-            others.forEach { stack ->
-                val submenu = DefaultActionGroup.createPopupGroup { "${stack.title} · ${stack.trunk}" }
-                submenu.templatePresentation.icon = GhStackIcons.Stack
-                stack.branches.asReversed().forEach { submenu.add(SwitchToBranchAction(project, stack, it)) }
-                group.add(submenu)
-            }
-        }
-        group.addSeparator()
-        group.add(ActionManager.getInstance().getAction("GhStack.SwitcherFooter"))
-        val title = if (stacks.isEmpty()) "No stacks" else null
+        val title = if (current == null) state?.currentBranch?.let { "$it isn't part of a stack" } ?: "No stack" else null
         return JBPopupFactory.getInstance().createActionGroupPopup(title, group, dataContext, JBPopupFactory.ActionSelectionAid.SPEEDSEARCH, true)
     }
 }

@@ -15,6 +15,17 @@ data class RepoCoordinates(val host: String, val owner: String, val name: String
             if (host.isBlank() || parts.size != 2 || parts.any { it.isBlank() }) return null
             return RepoCoordinates(host, parts[0], parts[1])
         }
+
+        /** From a git remote URL: `https://host/owner/name(.git)`, `git@host:owner/name.git`, `ssh://git@host[:port]/owner/name`. */
+        fun fromRemoteUrl(url: String): RepoCoordinates? {
+            val trimmed = url.trim()
+            val match = URL_FORM.matchEntire(trimmed) ?: SCP_FORM.matchEntire(trimmed) ?: return null
+            val (host, owner, name) = match.destructured
+            return RepoCoordinates(host, owner, name)
+        }
+
+        private val URL_FORM = Regex("""(?:https?|ssh|git)://(?:[^@/]+@)?([^/:]+)(?::\d+)?/([^/]+)/([^/]+?)(?:\.git)?/?""")
+        private val SCP_FORM = Regex("""[^@/]+@([^/:]+):([^/]+)/([^/]+?)(?:\.git)?/?""")
     }
 }
 

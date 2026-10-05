@@ -14,6 +14,7 @@ import com.github.sanex3339.ghstack.model.BranchStatus
 import com.github.sanex3339.ghstack.model.OperationState
 import com.github.sanex3339.ghstack.model.RemoveMode
 import com.github.sanex3339.ghstack.model.StackUi
+import com.github.sanex3339.ghstack.model.RemoteStackInfo
 import com.github.sanex3339.ghstack.ops.InsertBranchWorkflow
 import com.github.sanex3339.ghstack.ops.MoveChangesWorkflow
 import com.github.sanex3339.ghstack.ops.MoveOutcome
@@ -96,6 +97,16 @@ object GhStackCommands {
             if (stack("checkout", target).ok) success("Checked out $target")
         }
     }
+
+    /** Started by the state service when the checked-out branch is in a stack on GitHub that no local stack tracks. */
+    fun pullStack(project: Project, root: Path, branch: String, stack: RemoteStackInfo) =
+        ops(project).run("Pull stack #${stack.number} from GitHub", root, progressText = "Pulling stack #${stack.number}…") {
+            info("$branch belongs to stack #${stack.number} on GitHub (${stack.prNumbers.size} pull requests); pulling it")
+            ensurePushRemote()
+            // A bare number would be read as a stack number first.
+            val target = if (branch.all(Char::isDigit)) stack.number.toString() else branch
+            if (stack("checkout", target).ok) success("Pulled stack #${stack.number}: its branches are tracked locally now")
+        }
 
     // ── Remote operations ─────────────────────────────────────────────────────
 

@@ -14,11 +14,14 @@ the plugin only reads its state files.
 
 ## Features
 
-- **Stacked PRs tool window** (right side): every local stack as a tree, top → bottom, with PR number
+- **Stacked PRs tool window** (right side): the checked-out branch's stack as a tree, top → bottom, with PR number
   and status (`✓` merged, `◎` queued, `⚠` needs rebase, `○` open, `◌` not submitted). Double-click a
   branch to switch to it; right-click for insert, remove, layer diff, rebase-from-here, open PR.
 - **Stack switcher**: the `⧉ api 2/4` dropdown next to the Git branch widget, the status bar widget,
-  or `⌘⌥K L` / `Ctrl+Alt+X L`. Lists the stack's branches plus other stacks; click to switch.
+  or `⌘⌥K L` / `Ctrl+Alt+X L`. Lists the current stack's branches and its trunk; click to switch.
+- **Stacks from GitHub**: check out a branch that no local stack tracks (a colleague's stack, or yours
+  from another machine) and, if its pull request is in a stack on GitHub, that stack is pulled in with
+  `gh stack checkout`. Turn it off in Settings ▸ Tools ▸ Stacked PRs.
 - **Insert branch below/above**: creates the branch at the right parent, re-registers the stack and
   checks the branch out. Move changes into it (or ask your agent to), commit, then **Submit**.
 - **Remove from stack**: drop a branch and its commits (branches above are rebased without them), or
