@@ -27,6 +27,11 @@
     <p><i>Not affiliated with or endorsed by GitHub. GitHub is a trademark of GitHub, Inc.</i></p>
     ]]></description>
     <change-notes><![CDATA[
+    <p><b>0.4.1</b></p>
+    <ul>
+      <li>Agent skill (Settings | Tools | Stacked PRs): teaches Claude Code and other agents (~/.claude/skills,
+          ~/.agents/skills) when and how to use the plugin's stack tools.</li>
+    </ul>
     <p><b>0.4.0</b></p>
     <ul>
       <li>Clicking a checks label lists the failing, running and cancelled checks, like the pull request's checks box;

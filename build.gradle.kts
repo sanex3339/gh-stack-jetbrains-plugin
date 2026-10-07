@@ -79,6 +79,14 @@ intellijPlatform {
 
 tasks.test {
     useJUnitPlatform()
+    systemProperty("stackedprs.version", version.toString())
+}
+
+tasks.processResources {
+    // The bundled agent skill records which plugin version wrote it (Settings reads it back to offer updates).
+    val pluginVersion = version.toString()
+    inputs.property("pluginVersion", pluginVersion)
+    filesMatching("agent-skill/SKILL.md") { filter { line -> line.replace("{{version}}", pluginVersion) } }
 }
 
 tasks.runIde {

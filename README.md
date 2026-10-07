@@ -50,7 +50,9 @@ the plugin only reads its state files.
   and the IDE's MCP server enabled (Settings ▸ Tools ▸ MCP Server), agents get
   `stack_view`, `stack_checkout`, `stack_insert_branch`, `stack_remove_branch`, `stack_move_changes`,
   `stack_rebase(_continue/_abort)`, `stack_push`, `stack_submit`, `stack_sync`, `stack_mark_ready` and
-  `stack_undo`, which run the same workflows as the UI and show up in the activity log. Turning the setting off
+  `stack_undo`, which run the same workflows as the UI and show up in the activity log. **Install** the agent skill
+  in the same settings page to teach agents when to use them: it writes a `stacked-prs-ide` skill to
+  `~/.claude/skills` (Claude Code) and `~/.agents/skills` (agents following the shared convention). Turning the setting off
   stops the tools at once; agents see them added or removed after the IDE restarts.
 - `gh stack modify` and the interactive `submit` editor run in an IDE terminal tab.
 
